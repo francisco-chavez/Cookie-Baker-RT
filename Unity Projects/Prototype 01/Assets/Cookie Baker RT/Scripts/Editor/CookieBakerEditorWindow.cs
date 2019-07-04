@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
 
 namespace FCT.CookieBakerP01
@@ -20,6 +21,12 @@ namespace FCT.CookieBakerP01
 		/// The current overall state of the bake process.
 		/// </summary>
 		private static BakeState s_currentBakeState = BakeState.SettingSelection;
+
+		/// <summary>
+		/// If a valid Light component is currently selected while inserting our settings, it will show up here.
+		/// If we are not in setting insertion, this will hold the Light component we are currently baking for.
+		/// </summary>
+		private static Light s_currentLightComponent = null;
 
 		#endregion
 
@@ -42,6 +49,7 @@ namespace FCT.CookieBakerP01
 			switch (CookieBakerEditorWindow.s_currentBakeState)
 			{
 				case BakeState.SettingSelection:
+					DrawSettingSelection();
 					break;
 
 				case BakeState.Prep:
@@ -71,6 +79,102 @@ namespace FCT.CookieBakerP01
 			// at about 10 fps.
 			// -FCT
 			Repaint();
+		}
+
+		private void DrawSettingSelection()
+		{
+
+			#region State Checking
+
+			//
+			// Making sure we have all the valid inputs needed for drawing User Inputs.
+			//
+
+			if (EditorApplication.isPlaying || EditorApplication.isCompiling || EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isUpdating)
+			{
+				GUILayout.Label("Unity Editor is currently busy.");
+				return;
+			}
+
+			var activeGameObject = Selection.activeGameObject;
+
+			if (activeGameObject == null)
+			{
+				GUILayout.Label("Please select a valid light source in the scene.");
+				return;
+			}
+
+			var selectedLightComponent = activeGameObject.GetComponent<Light>();
+			if (selectedLightComponent == null)
+			{
+				GUILayout.Label("Please select a valid light source in the scene.");
+				return;
+			}
+
+			switch (selectedLightComponent.type)
+			{
+				case LightType.Spot:
+					break;
+
+				// I'm planning to support Point lights in the future, so I'm separating this from default.
+				// -FCT
+				case LightType.Point:
+				default:
+					GUILayout.Label("Please select a valid light source in the scene.");
+					return;
+			}
+
+			// Check some HDRP relectaed things.
+			HDAdditionalLightData additionalLightData = activeGameObject.GetComponent<HDAdditionalLightData>();
+			if (additionalLightData == null)
+			{
+				// Not an light in HDRP (I think).
+				GUILayout.Label("Please select a valid light source in the scene.");
+				return;
+			}
+			switch (additionalLightData.lightTypeExtent)
+			{
+				case LightTypeExtent.Rectangle:
+				case LightTypeExtent.Tube:
+					GUILayout.Label("Please select a valid light source in the scene.");
+					return;
+			}
+
+			// I know that at the moment, Spot light is the only light that will make it this far, but I'm planning
+			// to have this plugin work with Point lights too. Doing this now, is one less change I'll need to make
+			// later on.
+			// -FCT
+			if (selectedLightComponent.type == LightType.Spot)
+			{
+
+				switch (additionalLightData.spotLightShape)
+				{
+					case SpotLightShape.Cone:
+						break;
+
+					// I need to check if each of the different shapes requires different math, so for now, I'll just pick 
+					// one shape to work on. I'm picking Cone because it looks like it'll have the most realistic light 
+					// spread.
+					// -FCT
+					default:
+						GUILayout.Label("Please select a valid light source in the scene.");
+						return;
+				}
+			}
+
+			#endregion
+
+			CookieBakerEditorWindow.s_currentLightComponent = selectedLightComponent;
+
+			if (GUILayout.Button("Start Baking."))
+			{
+				StartBakingProcess();
+			}
+		}
+
+		private void StartBakingProcess()
+		{
+
 		}
 
 
