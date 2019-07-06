@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 using UnityEditor;
 using UnityEditorInternal;
@@ -11,6 +12,7 @@ using UnityEngine.Experimental.Rendering.HDPipeline;
 
 namespace FCT.CookieBakerP01
 {
+	[DisallowMultipleComponent]
 	public class CookieBakerEditorWindow
 		: EditorWindow
 	{
@@ -20,13 +22,25 @@ namespace FCT.CookieBakerP01
 		/// <summary>
 		/// The current overall state of the bake process.
 		/// </summary>
-		private static BakeState s_currentBakeState = BakeState.SettingSelection;
+		private static			BakeState	s_currentBakeState			= BakeState.SettingSelection;
 
 		/// <summary>
 		/// If a valid Light component is currently selected while inserting our settings, it will show up here.
 		/// If we are not in setting insertion, this will hold the Light component we are currently baking for.
 		/// </summary>
-		private static Light s_currentLightComponent = null;
+		private static			Light		s_currentLightComponent		= null;
+
+		/// <summary>
+		/// This is a collection of the selectable texture resolutions when it comes to importing a texture into 
+		/// a Unity project. Because we are creating textures that will be imported and we need to display this 
+		/// selection, so we should probably have this information.
+		/// </summary>
+		private static readonly int[]		s_resolutionOptions			= new int[] { 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192 };
+
+		/// <summary>
+		/// This is the indix of the resolution option that will be used to create the final texture.
+		/// </summary>
+		private static			int			s_selectedCookieResolution	= 4;
 
 		#endregion
 
@@ -39,6 +53,7 @@ namespace FCT.CookieBakerP01
 		{
 			var window = EditorWindow.GetWindow<CookieBakerEditorWindow>("Cookie Baker RT",
 																		 new Type[] { Type.GetType("UnityEditor.InspectorWindow, UnityEditor.dll") });
+			window.Show();
 		}
 
 		/// <summary>
@@ -165,6 +180,15 @@ namespace FCT.CookieBakerP01
 			#endregion
 
 			CookieBakerEditorWindow.s_currentLightComponent = selectedLightComponent;
+
+			///
+			/// Get the resolution for the generated cookie.
+			/// 
+			EditorGUILayout.BeginHorizontal();
+			var guiContent = new GUIContent("Cookie Resolution:");
+			var resOptions = s_resolutionOptions.Select(res => { return new GUIContent(res.ToString()); });
+			s_selectedCookieResolution = EditorGUILayout.Popup(guiContent, s_selectedCookieResolution, resOptions.ToArray());
+			EditorGUILayout.EndHorizontal();
 
 			if (GUILayout.Button("Start Baking."))
 			{
