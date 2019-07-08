@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 using Unity.EditorCoroutines;
@@ -226,15 +227,76 @@ namespace FCT.CookieBakerP01
 		{
 			yield return null;
 
-			yield return new EditorWaitForSeconds(5f);
+			yield return new EditorWaitForSeconds(3.5f);
 
 			s_currentBakeState = BakeState.Bake;
 
-			yield return new EditorWaitForSeconds(5f);
+			yield return new EditorWaitForSeconds(3.5f);
 
 			s_currentBakeState = BakeState.Finalize;
+			yield return null;
 
-			yield return new EditorWaitForSeconds(5f);
+			var resolution = s_resolutionOptions[s_selectedCookieResolution];
+			Texture2D finalResults = new Texture2D(resolution, resolution, TextureFormat.RGBAFloat, false, true);
+			finalResults.alphaIsTransparency = true;
+			finalResults.anisoLevel = 0;
+			finalResults.filterMode = FilterMode.Point;
+			finalResults.name = s_currentLightComponent.name + "_ShadowCookie_" + resolution.ToString();
+			finalResults.wrapMode = TextureWrapMode.Clamp;
+
+			yield return new EditorWaitForSeconds(0.5f);
+			
+			Color[] colors = new Color[resolution * resolution];
+			for (int y = 0; y < resolution; y++)
+				for (int x = 0; x < resolution; x++)
+				{
+					colors[resolution * y + x] = Color.gray;
+				}
+
+			yield return new EditorWaitForSeconds(0.5f);
+
+			finalResults.SetPixels(colors);
+
+			finalResults.Apply();
+
+			yield return new EditorWaitForSeconds(0.5f);
+
+			var assetFoldrPath = "Assets/Light_Cookies/" + s_currentLightComponent.gameObject.scene.name;
+
+			if (!Directory.Exists(assetFoldrPath))
+			{
+				if (!Directory.Exists("Assets/Light_Cookies"))
+				{
+					AssetDatabase.CreateFolder("Assets", "Light_Cookies");
+					yield return null;
+				}
+				AssetDatabase.CreateFolder("Assets/Light_Cookies", s_currentLightComponent.gameObject.scene.name);
+			}
+			yield return null;
+
+			// In my experience, encoding a Texture2D to a byte array is a CPU heavy step that can stall a 
+			// powerfull machine. I've seen this step take more time on a new (late 2017, early 2018) Intel server
+			// CPU than the processes of saving the resulting data to file. I've seen Windows Machines crash
+			// due to the load of encoding a series of 4K images where each image took over 1 second to encode. In
+			// our case, we're only encoding one image, so it should be fine. Also, I noticed a nice bump in speed
+			// for the Unity Recorder when switching from Unity 2017.4 to Unity 2018.1+, and that thing was also
+			// using the Texture2D encoding methods. Anyways, I'm adding a yield return null at the end of the 
+			// encoding method because I don't want to stallout the editor to the point of crashing. I think that 
+			// not having it will not be too much of an issue, but I'd rather play it safe on this one.
+			// -FCT
+			var exrEncodedResult = finalResults.EncodeToEXR(Texture2D.EXRFlags.OutputAsFloat);
+			yield return null;
+
+			File.WriteAllBytes(assetFoldrPath + "/" + finalResults.name + ".exr", exrEncodedResult);
+
+			yield return null;
+
+
+			//var assetPath = assetFoldrPath + "/" + finalResults.name + ".asset";
+			//AssetDatabase.CreateAsset(finalResults, assetPath);
+
+			yield return new EditorWaitForSeconds(0.15f);
+
 			s_bakingCoroutine = null;
 			s_currentBakeState = BakeState.SettingSelection;
 		}
