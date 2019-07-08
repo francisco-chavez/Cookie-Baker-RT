@@ -4,6 +4,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
+using Unity.EditorCoroutines;
+using Unity.EditorCoroutines.Editor;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
@@ -22,25 +24,30 @@ namespace FCT.CookieBakerP01
 		/// <summary>
 		/// The current overall state of the bake process.
 		/// </summary>
-		private static			BakeState	s_currentBakeState			= BakeState.SettingSelection;
+		private static			BakeState		s_currentBakeState			= BakeState.SettingSelection;
 
 		/// <summary>
 		/// If a valid Light component is currently selected while inserting our settings, it will show up here.
 		/// If we are not in setting insertion, this will hold the Light component we are currently baking for.
 		/// </summary>
-		private static			Light		s_currentLightComponent		= null;
+		private static			Light			s_currentLightComponent		= null;
 
 		/// <summary>
 		/// This is a collection of the selectable texture resolutions when it comes to importing a texture into 
 		/// a Unity project. Because we are creating textures that will be imported and we need to display this 
 		/// selection, so we should probably have this information.
 		/// </summary>
-		private static readonly int[]		s_resolutionOptions			= new int[] { 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192 };
+		private static readonly int[]			s_resolutionOptions			= new int[] { 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192 };
 
 		/// <summary>
 		/// This is the indix of the resolution option that will be used to create the final texture.
 		/// </summary>
-		private static			int			s_selectedCookieResolution	= 4;
+		private static			int				s_selectedCookieResolution	= 4;
+
+		/// <summary>
+		/// This is a reference to the coroutine that will manage the bake processes.
+		/// </summary>
+		private static			EditorCoroutine s_bakingCoroutine			= null;
 
 		#endregion
 
@@ -68,12 +75,15 @@ namespace FCT.CookieBakerP01
 					break;
 
 				case BakeState.Prep:
+					DrawPrepStage();
 					break;
 
 				case BakeState.Bake:
+					DrawBakeStage();
 					break;
 
 				case BakeState.Finalize:
+					DrawFinalizeStage();
 					break;
 
 				default:
@@ -192,13 +202,41 @@ namespace FCT.CookieBakerP01
 
 			if (GUILayout.Button("Start Baking."))
 			{
-				StartBakingProcess();
+				s_currentBakeState = BakeState.Prep;
+				s_bakingCoroutine = this.StartCoroutine(CookieBaking());
 			}
 		}
 
-		private void StartBakingProcess()
+		private void DrawPrepStage()
 		{
+			GUILayout.Label("Preparing for cookie bake.");
+		}
 
+		private void DrawBakeStage()
+		{
+			GUILayout.Label("The cookie is in the oven.");
+		}
+
+		private void DrawFinalizeStage()
+		{
+			GUILayout.Label("Just finishing up.");
+		}
+
+		private IEnumerator CookieBaking()
+		{
+			yield return null;
+
+			yield return new EditorWaitForSeconds(5f);
+
+			s_currentBakeState = BakeState.Bake;
+
+			yield return new EditorWaitForSeconds(5f);
+
+			s_currentBakeState = BakeState.Finalize;
+
+			yield return new EditorWaitForSeconds(5f);
+			s_bakingCoroutine = null;
+			s_currentBakeState = BakeState.SettingSelection;
 		}
 
 
