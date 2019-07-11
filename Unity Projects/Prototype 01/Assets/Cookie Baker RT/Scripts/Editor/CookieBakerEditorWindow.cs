@@ -50,6 +50,16 @@ namespace FCT.CookieBakerP01
 		/// </summary>
 		private static			EditorCoroutine s_bakingCoroutine			= null;
 
+		/// <summary>
+		/// Anthing that's closer to our light source than this inner radius will not be used in our shadow generation.
+		/// </summary>
+		private static			float			s_innerRadius				= 0.01f;
+
+		/// <summary>
+		/// Anything that's further away than this distance from our light source will not be used in our shadow generation.
+		/// </summary>
+		private static			float			s_outerRadius				= 0.20f;
+
 		#endregion
 
 
@@ -105,7 +115,20 @@ namespace FCT.CookieBakerP01
 			// at about 10 fps.
 			// -FCT
 			Repaint();
+
+			SceneView.RepaintAll();
 		}
+
+		private void OnEnable()
+		{
+			SceneView.onSceneGUIDelegate += MyOnGizmo;
+		}
+
+		private void OnDisable()
+		{
+			SceneView.onSceneGUIDelegate -= MyOnGizmo;
+		}
+
 
 		private void DrawSettingSelection()
 		{
@@ -192,11 +215,25 @@ namespace FCT.CookieBakerP01
 
 			CookieBakerEditorWindow.s_currentLightComponent = selectedLightComponent;
 
+			GUIContent guiContent = null;
+
+			EditorGUILayout.LabelField("Object Selection:");
+			EditorGUI.indentLevel++;
+			///
+			/// Get the range over which we'll be raytracing.
+			/// 
+			EditorGUILayout.BeginHorizontal();
+			guiContent = new GUIContent("Bake Item Range:", "Only items within the selected range can affect the results of the raytracing.");
+			EditorGUILayout.MinMaxSlider(guiContent, ref s_innerRadius, ref s_outerRadius, 0.001f, 1.0f);
+			EditorGUILayout.EndHorizontal();
+			EditorGUI.indentLevel--;
+
+			EditorGUILayout.Space();
 			///
 			/// Get the resolution for the generated cookie.
 			/// 
 			EditorGUILayout.BeginHorizontal();
-			var guiContent = new GUIContent("Cookie Resolution:");
+			guiContent = new GUIContent("Cookie Resolution:");
 			var resOptions = s_resolutionOptions.Select(res => { return new GUIContent(res.ToString()); });
 			s_selectedCookieResolution = EditorGUILayout.Popup(guiContent, s_selectedCookieResolution, resOptions.ToArray());
 			EditorGUILayout.EndHorizontal();
@@ -221,6 +258,27 @@ namespace FCT.CookieBakerP01
 		private void DrawFinalizeStage()
 		{
 			GUILayout.Label("Just finishing up.");
+		}
+
+
+		private void MyOnGizmo(SceneView sceneView)
+		{
+			if (s_currentLightComponent == null)
+				return;
+
+			var worldLightPos = s_currentLightComponent.transform.position;
+
+			/// Note: The SphereHandleCap method takes in the diameter of the sphere for the sphere's size. Normally, when 
+			///		  I think of spheres and circles sizes in terms of their radius because it's easier to apply that to
+			///		  the various measurements you might do. Yet, when you stop to think about it, when you put a bounding
+			///		  box around the sphere, the size of the bounding box will be the diameter length, making it a better
+			///		  parameter than radius to an API User.
+			///		  -FCT
+			Handles.color = new Color(1.0f, 0.0f, 0.0f, 0.2f);
+			Handles.SphereHandleCap(0, worldLightPos, Quaternion.identity, 2.0f * s_innerRadius, EventType.Repaint);
+
+			Handles.color = new Color(0.0f, 1.0f, 0.0f, 0.1f);
+			Handles.SphereHandleCap(0, worldLightPos, Quaternion.identity, 2.0f * s_outerRadius, EventType.Repaint);
 		}
 
 		private IEnumerator CookieBaking()
