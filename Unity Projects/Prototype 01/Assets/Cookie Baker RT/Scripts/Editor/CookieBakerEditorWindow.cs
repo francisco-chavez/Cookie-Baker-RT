@@ -60,6 +60,8 @@ namespace FCT.CookieBakerP01
 		/// </summary>
 		private static			float			s_outerRadius				= 0.20f;
 
+		private static			ComputeShader	s_computeShader;
+
 		#endregion
 
 
@@ -122,6 +124,9 @@ namespace FCT.CookieBakerP01
 		private void OnEnable()
 		{
 			SceneView.onSceneGUIDelegate += MyOnGizmo;
+
+			if (s_computeShader == null)
+				s_computeShader = AssetDatabase.LoadAssetAtPath<ComputeShader>("Assets/Cookie Baker RT/Shaders/CookieBakerComputeShader.compute");
 		}
 
 		private void OnDisable()
