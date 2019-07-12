@@ -290,6 +290,36 @@ namespace FCT.CookieBakerP01
 		{
 			yield return null;
 
+			// We only want to use GameObjects that are within the outer radius that we have set. So, a quick test
+			// to see if something is within the ball park would be to check if their bounding box insersects with
+			// a bounding box that contains the outer radius. Once that has been done, we can take a closer look at
+			// what's left.
+			var meshRenders = FindObjectsOfType<MeshRenderer>();
+			var lightCenter = s_currentLightComponent.transform.position;
+			var lightBoundingBox = new Bounds(lightCenter, 2.0f * s_outerRadius * Vector3.one);
+			var intersectingBounds = new List<MeshRenderer>();
+			foreach (var meshRenderer in meshRenders)
+			{
+				var otherBounds = meshRenderer.bounds;
+				if (otherBounds.Intersects(lightBoundingBox))
+					intersectingBounds.Add(meshRenderer);
+			}
+
+			yield return null;
+
+			// Now, we can limit things a bit more by finding the point within our mesh bounds that is nearset to
+			// the light's center. We then check this point to see if it's within the distance of our outer radius.
+			var intersectingOuterRadius = new List<MeshRenderer>();
+			foreach (var meshRenderer in intersectingBounds)
+			{
+				var otherBounds = meshRenderer.bounds;
+				var nearsetPointToLight = otherBounds.ClosestPoint(lightCenter);
+				if ((nearsetPointToLight - lightCenter).sqrMagnitude <= (s_outerRadius * s_outerRadius))
+					intersectingOuterRadius.Add(meshRenderer);
+			}
+
+			yield return null;
+
 			yield return new EditorWaitForSeconds(1.5f);
 
 			s_currentBakeState = BakeState.Bake;
