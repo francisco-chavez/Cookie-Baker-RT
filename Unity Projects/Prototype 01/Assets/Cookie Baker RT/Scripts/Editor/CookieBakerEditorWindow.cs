@@ -309,14 +309,9 @@ namespace FCT.CookieBakerP01
 
 			// Now, we can limit things a bit more by finding the point within our mesh bounds that is nearset to
 			// the light's center. We then check this point to see if it's within the distance of our outer radius.
-			// Also, while we're at it, lets make sure that we are only baking items that are static. After all, 
-			// what's the point of baking the shadow casting item that might not be there?
 			var intersectingOuterRadius = new List<MeshRenderer>();
 			foreach (var meshRenderer in intersectingBounds)
 			{
-				if (!meshRenderer.gameObject.isStatic)
-					continue;
-
 				var otherBounds = meshRenderer.bounds;
 				var nearsetPointToLight = otherBounds.ClosestPoint(lightCenter);
 				if ((nearsetPointToLight - lightCenter).sqrMagnitude <= (s_outerRadius * s_outerRadius))
@@ -324,6 +319,45 @@ namespace FCT.CookieBakerP01
 			}
 
 			yield return null;
+
+			var processMeshRenderer = intersectingBounds;
+			var processMeshFilter = new List<MeshFilter>();
+
+			// We're reusing the List from intersectingBounds and placing it under a more appropriate name. 
+			// Basically, we're reusing a piece of memory that's no longer needed instead of allocating a new List
+			// with a new array. Also, this array shouldn't need to be resized to something larger because it 
+			// already a capacity that is greater than or equal to the number of items we will be processing.
+			processMeshRenderer.Clear();
+			intersectingBounds = null;
+
+
+			// Also, while we're at it, lets make sure that we are only baking items that are static. After all, 
+			// what's the point of baking the shadow casting item that might not be there?
+			foreach (var meshRender in intersectingOuterRadius)
+			{
+				var gameObject = meshRender.gameObject;
+
+				// If the gameObject isn't static, than it can be moved. Since we are not updating the cookie at 
+				// runtime, having a moving object would be bad.
+				if (!gameObject.isStatic)
+					continue;
+
+				// The mesh for our object is inside the MeshFilter, so we need that to get the mesh. Also, since we're
+				// dealing with static meshes, then we really shouldn't be dealing with any Skinned Mesh Renderers.
+				var meshFilter = gameObject.GetComponent<MeshFilter>();
+				if (meshFilter == null)
+					continue;
+
+				// If there's no mesh, then what are we even bothering with this?
+				if (meshFilter.sharedMesh == null)
+					continue;
+
+				processMeshRenderer.Add(meshRender);
+				processMeshFilter.Add(meshFilter);
+			}
+
+			yield return null;
+
 
 			yield return new EditorWaitForSeconds(1.5f);
 
