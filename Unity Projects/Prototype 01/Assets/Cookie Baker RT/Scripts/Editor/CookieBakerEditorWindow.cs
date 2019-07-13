@@ -309,9 +309,14 @@ namespace FCT.CookieBakerP01
 
 			// Now, we can limit things a bit more by finding the point within our mesh bounds that is nearset to
 			// the light's center. We then check this point to see if it's within the distance of our outer radius.
+			// Also, while we're at it, lets make sure that we are only baking items that are static. After all, 
+			// what's the point of baking the shadow casting item that might not be there?
 			var intersectingOuterRadius = new List<MeshRenderer>();
 			foreach (var meshRenderer in intersectingBounds)
 			{
+				if (!meshRenderer.gameObject.isStatic)
+					continue;
+
 				var otherBounds = meshRenderer.bounds;
 				var nearsetPointToLight = otherBounds.ClosestPoint(lightCenter);
 				if ((nearsetPointToLight - lightCenter).sqrMagnitude <= (s_outerRadius * s_outerRadius))
