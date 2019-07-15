@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 
@@ -25,42 +26,42 @@ namespace FCT.CookieBakerP01
 		/// <summary>
 		/// The current overall state of the bake process.
 		/// </summary>
-		private static			BakeState		s_currentBakeState			= BakeState.SettingSelection;
+		private static			BakeState			s_currentBakeState			= BakeState.SettingSelection;
 
 		/// <summary>
 		/// If a valid Light component is currently selected while inserting our settings, it will show up here.
 		/// If we are not in setting insertion, this will hold the Light component we are currently baking for.
 		/// </summary>
-		private static			Light			s_currentLightComponent		= null;
+		private static			Light				s_currentLightComponent		= null;
 
 		/// <summary>
 		/// This is a collection of the selectable texture resolutions when it comes to importing a texture into 
 		/// a Unity project. Because we are creating textures that will be imported and we need to display this 
 		/// selection, so we should probably have this information.
 		/// </summary>
-		private static readonly int[]			s_resolutionOptions			= new int[] { 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192 };
+		private static readonly int[]				s_resolutionOptions			= new int[] { 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192 };
 
 		/// <summary>
 		/// This is the indix of the resolution option that will be used to create the final texture.
 		/// </summary>
-		private static			int				s_selectedCookieResolution	= 4;
+		private static			int					s_selectedCookieResolution	= 4;
 
 		/// <summary>
 		/// This is a reference to the coroutine that will manage the bake processes.
 		/// </summary>
-		private static			EditorCoroutine s_bakingCoroutine			= null;
+		private static			EditorCoroutine		s_bakingCoroutine			= null;
 
 		/// <summary>
 		/// Anthing that's closer to our light source than this inner radius will not be used in our shadow generation.
 		/// </summary>
-		private static			float			s_innerRadius				= 0.01f;
+		private static			float				s_innerRadius				= 0.01f;
 
 		/// <summary>
 		/// Anything that's further away than this distance from our light source will not be used in our shadow generation.
 		/// </summary>
-		private static			float			s_outerRadius				= 0.20f;
+		private static			float				s_outerRadius				= 0.20f;
 
-		private static			ComputeShader	s_computeShader;
+		private static			ComputeShader		s_computeShader;
 
 		#endregion
 
@@ -358,6 +359,33 @@ namespace FCT.CookieBakerP01
 
 			yield return null;
 
+			using (var backgroundWorker = new BackgroundWorker() { WorkerSupportsCancellation = true })
+			{
+				backgroundWorker.DoWork += BackgroundWorker_DoWork;
+
+				// Todo: With this design, items that use the same mesh will replicate the mesh verts and triangle index 
+				//		 arrays. I need to add a way to check if we have already added a mesh and if so, pull up the triangle
+				//		 index array information to pass along to the meshRefDatum. 
+				var meshObjecRefData			= new List<MeshObject>(processMeshRenderer.Count);
+				var indexList					= new List<int>();
+				var vertexList					= new List<Vector3>(processMeshRenderer.Count * 100);
+
+				for (int i = 0; i < processMeshRenderer.Count; i++)
+				{
+					var mesh = processMeshFilter[i].sharedMesh;
+					var meshVerts = mesh.vertices;
+					var meshIndex = mesh.triangles;
+
+					var meshRefDatum = new MeshObject();
+					meshRefDatum.LocalToWorldMatrix = processMeshRenderer[i].localToWorldMatrix;
+					meshRefDatum.IndicesOffset = indexList.Count;
+					meshRefDatum.IndicesCount = meshIndex.Length;
+
+					vertexList.AddRange(meshVerts);
+					indexList.AddRange(meshIndex);
+				}
+			}
+
 
 			yield return new EditorWaitForSeconds(1.5f);
 
@@ -434,6 +462,10 @@ namespace FCT.CookieBakerP01
 			s_currentBakeState = BakeState.SettingSelection;
 		}
 
+		private void BackgroundWorker_DoWork(object sender, DoWorkEventArgs e)
+		{
+		}
+
 
 		#region Internal Struct Definitions
 
@@ -448,6 +480,19 @@ namespace FCT.CookieBakerP01
 			Prep,
 			Bake,
 			Finalize
+		}
+
+		/// <summary>
+		/// I'm using http://blog.three-eyed-games.com/2019/03/18/gpu-path-tracing-in-unity-part-3/ as my 
+		/// starting point for the Ray Tracing, and will then add or alter things as needed. This struct will
+		/// work as a object specific data holder. This way, if two or more object share a mesh, they can still
+		/// be told apart by their Local to World Matrix. As time goes on, we'll be adding more information.
+		/// </summary>
+		private struct MeshObject
+		{
+			public Matrix4x4	LocalToWorldMatrix;
+			public int			IndicesOffset;
+			public int			IndicesCount;
 		}
 
 		#endregion
