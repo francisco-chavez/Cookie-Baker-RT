@@ -478,6 +478,23 @@ namespace FCT.CookieBakerP01
 
 		private void BackgroundWorker_DoWork(object sender, DoWorkEventArgs e)
 		{
+			RenderTexture renderTexture = new RenderTexture(s_resolutionOptions[s_selectedCookieResolution],	// Width
+															s_resolutionOptions[s_selectedCookieResolution],	// Height
+															0,													// Depth buffer (none)
+															RenderTextureFormat.ARGBFloat,						// Use a full 32-bit float for each pixel chanel
+															RenderTextureReadWrite.Linear)						// Use linear lighting instead of gama
+			{
+				anisoLevel			= 0,
+				antiAliasing		= 0,
+				autoGenerateMips	= false,
+				enableRandomWrite	= true,
+				filterMode			= FilterMode.Point,
+				memorylessMode		= RenderTextureMemoryless.None,		// We want to be able to read this back into the system memory, so setting this to not use memory is not an option.
+				wrapMode			= TextureWrapMode.Clamp
+			};
+			renderTexture.Create();
+
+
 		}
 
 
