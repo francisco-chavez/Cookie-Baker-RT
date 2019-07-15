@@ -376,22 +376,36 @@ namespace FCT.CookieBakerP01
 					var meshVerts = mesh.vertices;
 					var meshIndex = mesh.triangles;
 
-					var meshRefDatum = new MeshObject();
-					meshRefDatum.LocalToWorldMatrix = processMeshRenderer[i].localToWorldMatrix;
-					meshRefDatum.IndicesOffset = indexList.Count;
-					meshRefDatum.IndicesCount = meshIndex.Length;
+					var meshRefDatum = new MeshObject()
+					{
+						LocalToWorldMatrix	= processMeshRenderer[i].localToWorldMatrix,
+						IndicesOffset		= indexList.Count,
+						IndicesCount		= meshIndex.Length
+					};
 
 					vertexList.AddRange(meshVerts);
 					indexList.AddRange(meshIndex);
 				}
+
+				var args = new BackgroundWorkerArgs()
+				{
+					MeshDataRefs		= meshObjecRefData,
+					TriangleIndexArray	= indexList,
+					VertexArray			= vertexList,
+					LightPosition		= lightCenter	// Wow, I got quite a bit of use out of this value.
+				};
+
+				yield return null;
+
+
+				backgroundWorker.RunWorkerAsync(args);
+				s_currentBakeState = BakeState.Bake;
+
+				while (backgroundWorker.IsBusy)
+					yield return null;
 			}
 
-
-			yield return new EditorWaitForSeconds(1.5f);
-
-			s_currentBakeState = BakeState.Bake;
-
-			yield return new EditorWaitForSeconds(1.5f);
+			yield return new EditorWaitForSeconds(2.5f);
 
 			///
 			/// Code for saving our results into the project and applying them to the light component.
@@ -493,6 +507,14 @@ namespace FCT.CookieBakerP01
 			public Matrix4x4	LocalToWorldMatrix;
 			public int			IndicesOffset;
 			public int			IndicesCount;
+		}
+
+		private class BackgroundWorkerArgs
+		{
+			public Vector3			LightPosition;
+			public List<MeshObject> MeshDataRefs;
+			public List<int>		TriangleIndexArray;
+			public List<Vector3>	VertexArray;
 		}
 
 		#endregion
