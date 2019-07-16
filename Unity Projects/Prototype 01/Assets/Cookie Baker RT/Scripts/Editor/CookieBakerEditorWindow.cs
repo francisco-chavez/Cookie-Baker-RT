@@ -494,7 +494,11 @@ namespace FCT.CookieBakerP01
 			};
 			renderTexture.Create();
 
+			var args = e.Argument as BackgroundWorkerArgs;
 
+			ComputeBuffer _objectBuffer = new ComputeBuffer(args.MeshDataRefs.Count, 72);
+			ComputeBuffer _vertexBuffer = new ComputeBuffer(args.VertexArray.Count, 12);
+			ComputeBuffer _indexBuffer	= new ComputeBuffer(args.TriangleIndexArray.Count, 4);
 		}
 
 
@@ -519,11 +523,14 @@ namespace FCT.CookieBakerP01
 		/// work as a object specific data holder. This way, if two or more object share a mesh, they can still
 		/// be told apart by their Local to World Matrix. As time goes on, we'll be adding more information.
 		/// </summary>
+		/// <remarks>
+		/// Size: 72 bytes
+		/// </remarks>
 		private struct MeshObject
 		{
-			public Matrix4x4	LocalToWorldMatrix;
-			public int			IndicesOffset;
-			public int			IndicesCount;
+			public Matrix4x4	LocalToWorldMatrix; // 16 floats, so 64 bytes
+			public int			IndicesOffset;		// 4 bytes
+			public int			IndicesCount;		// 4 bytes
 		}
 
 		private class BackgroundWorkerArgs
@@ -531,7 +538,7 @@ namespace FCT.CookieBakerP01
 			public Vector3			LightPosition;
 			public List<MeshObject> MeshDataRefs;
 			public List<int>		TriangleIndexArray;
-			public List<Vector3>	VertexArray;
+			public List<Vector3>	VertexArray;		// 3 floats, 12 bytes
 		}
 
 		#endregion
