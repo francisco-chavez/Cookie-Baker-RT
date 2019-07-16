@@ -496,9 +496,32 @@ namespace FCT.CookieBakerP01
 
 			var args = e.Argument as BackgroundWorkerArgs;
 
-			ComputeBuffer _objectBuffer = new ComputeBuffer(args.MeshDataRefs.Count, 72);
-			ComputeBuffer _vertexBuffer = new ComputeBuffer(args.VertexArray.Count, 12);
-			ComputeBuffer _indexBuffer	= new ComputeBuffer(args.TriangleIndexArray.Count, 4);
+			ComputeBuffer objectBuffer	= new ComputeBuffer(args.MeshDataRefs.Count, 72);
+			ComputeBuffer vertexBuffer	= new ComputeBuffer(args.VertexArray.Count, 12);
+			ComputeBuffer indexBuffer	= new ComputeBuffer(args.TriangleIndexArray.Count, 4);
+
+			objectBuffer.SetData(args.MeshDataRefs.ToArray());
+			vertexBuffer.SetData(args.VertexArray.ToArray());
+			indexBuffer.SetData(args.TriangleIndexArray.ToArray());
+
+			s_computeShader.SetTexture(0, "Result", renderTexture);
+			s_computeShader.SetVector("_LightPosition", new Vector4(args.LightPosition.x, args.LightPosition.y, args.LightPosition.z, 1.0f));
+			s_computeShader.SetFloat("_InnerRange", s_innerRadius);
+			s_computeShader.SetFloat("_OuterRange", s_outerRadius);
+			s_computeShader.SetBuffer(0, "_ObjectData", objectBuffer);
+			s_computeShader.SetBuffer(0, "_Vertices", vertexBuffer);
+			s_computeShader.SetBuffer(0, "_Indices", indexBuffer);
+
+			s_computeShader.Dispatch(0,														// We only have the one kernal, so it will have an ID of 0
+									 s_resolutionOptions[s_selectedCookieResolution] / 8,	// All of our resolution options are divisible by 8, so we don't need to worry about things like 
+									 s_resolutionOptions[s_selectedCookieResolution] / 8,   // adding an extra thread group when you have a (resolution % 8) != 0
+									 1);                                                    // We only need one thread group for 'Z' because having more won't simplify any of our math.
+
+			objectBuffer.Release();
+			vertexBuffer.Release();
+			indexBuffer.Release();
+
+			e.Result = renderTexture;
 		}
 
 

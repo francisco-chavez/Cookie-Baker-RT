@@ -8,7 +8,7 @@ struct ObjectDatum
 	int			IndicesCount;
 };
 
-float3							_LightPosition;
+float4							_LightPosition;
 float							_InnerRange;
 float							_OuterRange;
 StructuredBuffer<ObjectDatum>	_ObjectData;
