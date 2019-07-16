@@ -359,6 +359,8 @@ namespace FCT.CookieBakerP01
 
 			yield return null;
 
+			BackgroundWorkerArgs backgroundWorkerArgs = null;
+
 			using (var backgroundWorker = new BackgroundWorker() { WorkerSupportsCancellation = true })
 			{
 				backgroundWorker.DoWork += BackgroundWorker_DoWork;
@@ -387,7 +389,7 @@ namespace FCT.CookieBakerP01
 					indexList.AddRange(meshIndex);
 				}
 
-				var args = new BackgroundWorkerArgs()
+				backgroundWorkerArgs = new BackgroundWorkerArgs()
 				{
 					MeshDataRefs		= meshObjecRefData,
 					TriangleIndexArray	= indexList,
@@ -398,14 +400,14 @@ namespace FCT.CookieBakerP01
 				yield return null;
 
 
-				backgroundWorker.RunWorkerAsync(args);
+				backgroundWorker.RunWorkerAsync(backgroundWorkerArgs);
 				s_currentBakeState = BakeState.Bake;
+
+				yield return new EditorWaitForSeconds(0.2f);
 
 				while (backgroundWorker.IsBusy)
 					yield return null;
 			}
-
-			yield return new EditorWaitForSeconds(2.5f);
 
 			///
 			/// Code for saving our results into the project and applying them to the light component.
@@ -425,22 +427,38 @@ namespace FCT.CookieBakerP01
 			};
 
 			yield return null;
-			
 
-			// Create an array of pixels to use as a result while we work on the real code.
-			Color[] colors = new Color[resolution * resolution];
-			for (int y = 0; y < resolution; y++)
-				for (int x = 0; x < resolution; x++)
-				{
-					colors[resolution * y + x] = Color.gray;
-				}
+			var prevActiveRendTexture = RenderTexture.active;   // Just in case something was there for some reason.
+
+
+			RenderTexture.active = backgroundWorkerArgs.Results;
+			finalResults.ReadPixels(new Rect(0, 0, resolution, resolution), 0, 0, false);
+			finalResults.Apply();
+
+			RenderTexture.active = prevActiveRendTexture;
 
 			yield return null;
+			backgroundWorkerArgs.Results.Release();
+
+			backgroundWorkerArgs.MeshDataRefs = null;
+			backgroundWorkerArgs.Results = null;
+			backgroundWorkerArgs.TriangleIndexArray = null;
+			backgroundWorkerArgs.VertexArray = null;
+
+			//// Create an array of pixels to use as a result while we work on the real code.
+			//Color[] colors = new Color[resolution * resolution];
+			//for (int y = 0; y < resolution; y++)
+			//	for (int x = 0; x < resolution; x++)
+			//	{
+			//		colors[resolution * y + x] = Color.gray;
+			//	}
+
+			//yield return null;
 
 
-			// Apply the results to the Texture2D
-			finalResults.SetPixels(colors);
-			finalResults.Apply();
+			//// Apply the results to the Texture2D
+			//finalResults.SetPixels(colors);
+			//finalResults.Apply();
 
 			yield return null;
 
@@ -478,6 +496,7 @@ namespace FCT.CookieBakerP01
 
 		private void BackgroundWorker_DoWork(object sender, DoWorkEventArgs e)
 		{
+
 			RenderTexture renderTexture = new RenderTexture(s_resolutionOptions[s_selectedCookieResolution],	// Width
 															s_resolutionOptions[s_selectedCookieResolution],	// Height
 															0,													// Depth buffer (none)
@@ -504,6 +523,7 @@ namespace FCT.CookieBakerP01
 			vertexBuffer.SetData(args.VertexArray.ToArray());
 			indexBuffer.SetData(args.TriangleIndexArray.ToArray());
 
+
 			s_computeShader.SetTexture(0, "Result", renderTexture);
 			s_computeShader.SetVector("_LightPosition", new Vector4(args.LightPosition.x, args.LightPosition.y, args.LightPosition.z, 1.0f));
 			s_computeShader.SetFloat("_InnerRange", s_innerRadius);
@@ -522,6 +542,7 @@ namespace FCT.CookieBakerP01
 			indexBuffer.Release();
 
 			e.Result = renderTexture;
+			args.Results = renderTexture;
 		}
 
 
@@ -561,7 +582,8 @@ namespace FCT.CookieBakerP01
 			public Vector3			LightPosition;
 			public List<MeshObject> MeshDataRefs;
 			public List<int>		TriangleIndexArray;
-			public List<Vector3>	VertexArray;		// 3 floats, 12 bytes
+			public List<Vector3>	VertexArray;        // 3 floats, 12 bytes
+			public RenderTexture	Results;
 		}
 
 		#endregion

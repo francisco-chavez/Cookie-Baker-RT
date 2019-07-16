@@ -24,5 +24,19 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 {
     // TODO: insert actual code here!
 
-    Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
+	uint width;
+	uint height;
+
+	Result.GetDimensions(width, height);
+
+	float pixX = id.x;
+	float pixY = id.y;
+
+	float2 uv = float2(pixX / (width - 1), pixY / (height - 1));
+	uv *= 2.0;
+	uv -= 1.0;
+
+	float inside = dot(uv, uv) <= 1.0 ? 1.0 : 0.0;
+
+	Result[id.xy] = float4(inside, inside, inside, 1.0 - inside);
 }
