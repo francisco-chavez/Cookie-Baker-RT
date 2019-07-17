@@ -291,6 +291,9 @@ namespace FCT.CookieBakerP01
 		{
 			yield return null;
 
+			var resolution = s_resolutionOptions[s_selectedCookieResolution];
+
+
 			// We only want to use GameObjects that are within the outer radius that we have set. So, a quick test
 			// to see if something is within the ball park would be to check if their bounding box insersects with
 			// a bounding box that contains the outer radius. Once that has been done, we can take a closer look at
@@ -359,65 +362,103 @@ namespace FCT.CookieBakerP01
 
 			yield return null;
 
-			BackgroundWorkerArgs backgroundWorkerArgs = null;
-
-			using (var backgroundWorker = new BackgroundWorker() { WorkerSupportsCancellation = true })
+			RenderTexture renderTexture = new RenderTexture(resolution,						// Width
+															resolution,						// Height
+															0,								// Depth buffer (none)
+															RenderTextureFormat.ARGBFloat,	// Use a full 32-bit float for each pixel chanel
+															RenderTextureReadWrite.Linear)	// Use linear lighting instead of gama
 			{
-				backgroundWorker.DoWork += BackgroundWorker_DoWork;
+				anisoLevel			= 0,
+				antiAliasing		= 1,
+				autoGenerateMips	= false,
+				enableRandomWrite	= true,
+				filterMode			= FilterMode.Point,
+				memorylessMode		= RenderTextureMemoryless.None,		// We want to be able to read this back into the system memory, so setting this to not use memory is not an option.
+				wrapMode			= TextureWrapMode.Clamp
+			};
+			renderTexture.Create();
 
-				// Todo: With this design, items that use the same mesh will replicate the mesh verts and triangle index 
-				//		 arrays. I need to add a way to check if we have already added a mesh and if so, pull up the triangle
-				//		 index array information to pass along to the meshRefDatum. 
-				var meshObjecRefData			= new List<MeshObject>(processMeshRenderer.Count);
-				var indexList					= new List<int>();
-				var vertexList					= new List<Vector3>(processMeshRenderer.Count * 100);
 
-				for (int i = 0; i < processMeshRenderer.Count; i++)
+			// Todo: With this design, items that use the same mesh will replicate the mesh verts and triangle index 
+			//		 arrays. I need to add a way to check if we have already added a mesh and if so, pull up the triangle
+			//		 index array information to pass along to the meshRefDatum. 
+			var meshObjecRefData			= new List<MeshObject>(processMeshRenderer.Count);
+			var indexList					= new List<int>();
+			var vertexList					= new List<Vector3>(processMeshRenderer.Count * 100);
+
+			for (int i = 0; i < processMeshRenderer.Count; i++)
+			{
+				var mesh = processMeshFilter[i].sharedMesh;
+				var meshVerts = mesh.vertices;
+				var meshIndex = mesh.triangles;
+
+				var meshRefDatum = new MeshObject()
 				{
-					var mesh = processMeshFilter[i].sharedMesh;
-					var meshVerts = mesh.vertices;
-					var meshIndex = mesh.triangles;
-
-					var meshRefDatum = new MeshObject()
-					{
-						LocalToWorldMatrix	= processMeshRenderer[i].localToWorldMatrix,
-						IndicesOffset		= indexList.Count,
-						IndicesCount		= meshIndex.Length
-					};
-
-					vertexList.AddRange(meshVerts);
-					indexList.AddRange(meshIndex);
-				}
-
-				backgroundWorkerArgs = new BackgroundWorkerArgs()
-				{
-					MeshDataRefs		= meshObjecRefData,
-					TriangleIndexArray	= indexList,
-					VertexArray			= vertexList,
-					LightPosition		= lightCenter	// Wow, I got quite a bit of use out of this value.
+					LocalToWorldMatrix	= processMeshRenderer[i].localToWorldMatrix,
+					IndicesOffset		= indexList.Count,
+					IndicesCount		= meshIndex.Length
 				};
 
-				yield return null;
-
-
-				backgroundWorker.RunWorkerAsync(backgroundWorkerArgs);
-				s_currentBakeState = BakeState.Bake;
-
-				yield return new EditorWaitForSeconds(0.2f);
-
-				while (backgroundWorker.IsBusy)
-					yield return null;
+				vertexList.AddRange(meshVerts);
+				indexList.AddRange(meshIndex);
 			}
+
+			//backgroundWorkerArgs = new BackgroundWorkerArgs()
+			//{
+			//	MeshDataRefs		= meshObjecRefData,
+			//	TriangleIndexArray	= indexList,
+			//	VertexArray			= vertexList,
+			//	LightPosition		= lightCenter,	// Wow, I got quite a bit of use out of this value.
+			//	Results				= renderTexture
+			//};
+
+			yield return null;
+
+			ComputeBuffer objectBuffer = new ComputeBuffer(meshObjecRefData.Count, 72);
+			ComputeBuffer vertexBuffer = new ComputeBuffer(vertexList.Count, 12);
+			ComputeBuffer indexBuffer = new ComputeBuffer(indexList.Count, 4);
+
+			objectBuffer.SetData(meshObjecRefData.ToArray());
+			vertexBuffer.SetData(vertexList.ToArray());
+			indexBuffer.SetData(indexList.ToArray());
+
+
+			s_computeShader.SetTexture(0, "Result", renderTexture);
+			s_computeShader.SetVector("_LightPosition", new Vector4(lightCenter.x, lightCenter.y, lightCenter.z, 1.0f));
+			s_computeShader.SetFloat("_InnerRange", s_innerRadius);
+			s_computeShader.SetFloat("_OuterRange", s_outerRadius);
+			s_computeShader.SetBuffer(0, "_ObjectData", objectBuffer);
+			s_computeShader.SetBuffer(0, "_Vertices", vertexBuffer);
+			s_computeShader.SetBuffer(0, "_Indices", indexBuffer);
+
+			yield return null;
+			s_currentBakeState = BakeState.Bake;
+			yield return null;
+
+
+			s_computeShader.Dispatch(0,					// We only have the one kernal, so it will have an ID of 0
+									 resolution / 8,	// All of our resolution options are divisible by 8, so we don't need to worry about things like 
+									 resolution / 8,	// adding an extra thread group when you have a (resolution % 8) != 0
+									 1);				// We only need one thread group for 'Z' because having more won't simplify any of our math.
+			yield return null;
+
+			s_currentBakeState = BakeState.Finalize;
+			yield return null;
+
+			objectBuffer.Release();
+			vertexBuffer.Release();
+			indexBuffer.Release();
+
+			yield return null;
+
+
 
 			///
 			/// Code for saving our results into the project and applying them to the light component.
 			/// 
-			s_currentBakeState = BakeState.Finalize;
-			yield return null;
 
 			// Create a Texture2D to place our results into. This Texture2D will be added to the project's assets 
 			// and it will be applied to the light source we were raytracing.
-			var resolution = s_resolutionOptions[s_selectedCookieResolution];
 			Texture2D finalResults = new Texture2D(resolution, resolution, TextureFormat.RGBAFloat, false, true)
 			{
 				alphaIsTransparency = true,
@@ -431,19 +472,13 @@ namespace FCT.CookieBakerP01
 			var prevActiveRendTexture = RenderTexture.active;   // Just in case something was there for some reason.
 
 
-			RenderTexture.active = backgroundWorkerArgs.Results;
+			RenderTexture.active = renderTexture;
 			finalResults.ReadPixels(new Rect(0, 0, resolution, resolution), 0, 0, false);
 			finalResults.Apply();
 
 			RenderTexture.active = prevActiveRendTexture;
 
 			yield return null;
-			backgroundWorkerArgs.Results.Release();
-
-			backgroundWorkerArgs.MeshDataRefs = null;
-			backgroundWorkerArgs.Results = null;
-			backgroundWorkerArgs.TriangleIndexArray = null;
-			backgroundWorkerArgs.VertexArray = null;
 
 			//// Create an array of pixels to use as a result while we work on the real code.
 			//Color[] colors = new Color[resolution * resolution];
@@ -494,56 +529,22 @@ namespace FCT.CookieBakerP01
 			s_currentBakeState = BakeState.SettingSelection;
 		}
 
-		private void BackgroundWorker_DoWork(object sender, DoWorkEventArgs e)
-		{
+		//private void BackgroundWorker_DoWork(object sender, DoWorkEventArgs e)
+		//{
 
-			RenderTexture renderTexture = new RenderTexture(s_resolutionOptions[s_selectedCookieResolution],	// Width
-															s_resolutionOptions[s_selectedCookieResolution],	// Height
-															0,													// Depth buffer (none)
-															RenderTextureFormat.ARGBFloat,						// Use a full 32-bit float for each pixel chanel
-															RenderTextureReadWrite.Linear)						// Use linear lighting instead of gama
-			{
-				anisoLevel			= 0,
-				antiAliasing		= 0,
-				autoGenerateMips	= false,
-				enableRandomWrite	= true,
-				filterMode			= FilterMode.Point,
-				memorylessMode		= RenderTextureMemoryless.None,		// We want to be able to read this back into the system memory, so setting this to not use memory is not an option.
-				wrapMode			= TextureWrapMode.Clamp
-			};
-			renderTexture.Create();
+		//	//var renderTexture = args.Results;
+		//	try { 
 
-			var args = e.Argument as BackgroundWorkerArgs;
-
-			ComputeBuffer objectBuffer	= new ComputeBuffer(args.MeshDataRefs.Count, 72);
-			ComputeBuffer vertexBuffer	= new ComputeBuffer(args.VertexArray.Count, 12);
-			ComputeBuffer indexBuffer	= new ComputeBuffer(args.TriangleIndexArray.Count, 4);
-
-			objectBuffer.SetData(args.MeshDataRefs.ToArray());
-			vertexBuffer.SetData(args.VertexArray.ToArray());
-			indexBuffer.SetData(args.TriangleIndexArray.ToArray());
-
-
-			s_computeShader.SetTexture(0, "Result", renderTexture);
-			s_computeShader.SetVector("_LightPosition", new Vector4(args.LightPosition.x, args.LightPosition.y, args.LightPosition.z, 1.0f));
-			s_computeShader.SetFloat("_InnerRange", s_innerRadius);
-			s_computeShader.SetFloat("_OuterRange", s_outerRadius);
-			s_computeShader.SetBuffer(0, "_ObjectData", objectBuffer);
-			s_computeShader.SetBuffer(0, "_Vertices", vertexBuffer);
-			s_computeShader.SetBuffer(0, "_Indices", indexBuffer);
-
-			s_computeShader.Dispatch(0,														// We only have the one kernal, so it will have an ID of 0
-									 s_resolutionOptions[s_selectedCookieResolution] / 8,	// All of our resolution options are divisible by 8, so we don't need to worry about things like 
-									 s_resolutionOptions[s_selectedCookieResolution] / 8,   // adding an extra thread group when you have a (resolution % 8) != 0
-									 1);                                                    // We only need one thread group for 'Z' because having more won't simplify any of our math.
-
-			objectBuffer.Release();
-			vertexBuffer.Release();
-			indexBuffer.Release();
-
-			e.Result = renderTexture;
-			args.Results = renderTexture;
-		}
+		//	}
+		//	catch (Exception ex)
+		//	{
+		//		var s = ex.ToString();
+		//		int i = 0;
+		//		i++;
+		//	}
+		//	//e.Result = renderTexture;
+		//	args.Results = renderTexture;
+		//}
 
 
 		#region Internal Struct Definitions
@@ -577,14 +578,14 @@ namespace FCT.CookieBakerP01
 			public int			IndicesCount;		// 4 bytes
 		}
 
-		private class BackgroundWorkerArgs
-		{
-			public Vector3			LightPosition;
-			public List<MeshObject> MeshDataRefs;
-			public List<int>		TriangleIndexArray;
-			public List<Vector3>	VertexArray;        // 3 floats, 12 bytes
-			public RenderTexture	Results;
-		}
+		//private class BackgroundWorkerArgs
+		//{
+		//	public Vector3			LightPosition;
+		//	public List<MeshObject> MeshDataRefs;
+		//	public List<int>		TriangleIndexArray;
+		//	public List<Vector3>	VertexArray;        // 3 floats, 12 bytes
+		//	public RenderTexture	Results;
+		//}
 
 		#endregion
 
