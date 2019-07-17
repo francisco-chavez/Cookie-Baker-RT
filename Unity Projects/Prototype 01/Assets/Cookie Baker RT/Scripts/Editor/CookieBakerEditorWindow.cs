@@ -399,6 +399,7 @@ namespace FCT.CookieBakerP01
 					IndicesCount		= meshIndex.Length
 				};
 
+				meshObjecRefData.Add(meshRefDatum);
 				vertexList.AddRange(meshVerts);
 				indexList.AddRange(meshIndex);
 			}
