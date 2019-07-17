@@ -404,15 +404,6 @@ namespace FCT.CookieBakerP01
 				indexList.AddRange(meshIndex);
 			}
 
-			//backgroundWorkerArgs = new BackgroundWorkerArgs()
-			//{
-			//	MeshDataRefs		= meshObjecRefData,
-			//	TriangleIndexArray	= indexList,
-			//	VertexArray			= vertexList,
-			//	LightPosition		= lightCenter,	// Wow, I got quite a bit of use out of this value.
-			//	Results				= renderTexture
-			//};
-
 			yield return null;
 
 			ComputeBuffer objectBuffer = new ComputeBuffer(meshObjecRefData.Count, 72);
@@ -433,6 +424,8 @@ namespace FCT.CookieBakerP01
 			s_computeShader.SetBuffer(0, "_Indices", indexBuffer);
 
 			yield return null;
+
+
 			s_currentBakeState = BakeState.Bake;
 			yield return null;
 
@@ -470,31 +463,14 @@ namespace FCT.CookieBakerP01
 
 			yield return null;
 
-			var prevActiveRendTexture = RenderTexture.active;   // Just in case something was there for some reason.
 
+			var prevActiveRendTexture = RenderTexture.active;	// Just in case something was there for some reason.
 
 			RenderTexture.active = renderTexture;
 			finalResults.ReadPixels(new Rect(0, 0, resolution, resolution), 0, 0, false);
 			finalResults.Apply();
 
 			RenderTexture.active = prevActiveRendTexture;
-
-			yield return null;
-
-			//// Create an array of pixels to use as a result while we work on the real code.
-			//Color[] colors = new Color[resolution * resolution];
-			//for (int y = 0; y < resolution; y++)
-			//	for (int x = 0; x < resolution; x++)
-			//	{
-			//		colors[resolution * y + x] = Color.gray;
-			//	}
-
-			//yield return null;
-
-
-			//// Apply the results to the Texture2D
-			//finalResults.SetPixels(colors);
-			//finalResults.Apply();
 
 			yield return null;
 
@@ -523,29 +499,12 @@ namespace FCT.CookieBakerP01
 
 			// Apply the Texture2D to the light as a cooke, then finish cleaning up.
 			s_currentLightComponent.cookie = finalResults;
-			s_bakingCoroutine = null;   // The coroutines for MonoBehaviors have the option to manipulate them from the outside, which I have 
-										// made use of. With a bit of luck, those functions will be added to the EditorCoroutines at some point 
-										// in time.
-										// -FCT
+			s_bakingCoroutine	= null;		// The coroutines for MonoBehaviors have the option to manipulate them from the outside, which I have 
+											// made use of. With a bit of luck, those functions will be added to the EditorCoroutines at some point 
+											// in time.
+											// -FCT
 			s_currentBakeState = BakeState.SettingSelection;
 		}
-
-		//private void BackgroundWorker_DoWork(object sender, DoWorkEventArgs e)
-		//{
-
-		//	//var renderTexture = args.Results;
-		//	try { 
-
-		//	}
-		//	catch (Exception ex)
-		//	{
-		//		var s = ex.ToString();
-		//		int i = 0;
-		//		i++;
-		//	}
-		//	//e.Result = renderTexture;
-		//	args.Results = renderTexture;
-		//}
 
 
 		#region Internal Struct Definitions
@@ -578,15 +537,6 @@ namespace FCT.CookieBakerP01
 			public int			IndicesOffset;		// 4 bytes
 			public int			IndicesCount;		// 4 bytes
 		}
-
-		//private class BackgroundWorkerArgs
-		//{
-		//	public Vector3			LightPosition;
-		//	public List<MeshObject> MeshDataRefs;
-		//	public List<int>		TriangleIndexArray;
-		//	public List<Vector3>	VertexArray;        // 3 floats, 12 bytes
-		//	public RenderTexture	Results;
-		//}
 
 		#endregion
 
