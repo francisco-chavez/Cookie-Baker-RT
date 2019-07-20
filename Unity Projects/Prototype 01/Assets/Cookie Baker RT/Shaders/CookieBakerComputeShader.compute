@@ -83,14 +83,18 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	float4	lightRightwardDir	= float4(cross(_LightUpwardDir.xyz, _LightForwardDir.xyz), 0.0);
 	float	halfSize			= _ShadowFocusDistance * tan(_SpotLightAngle);
 
-	// Create inital LightRay for our Ray-Tracing.
+	///
+	/// Create inital LightRay for our Ray-Tracing.
+	///
 	LightRay lightRay = CreateInitialLightRay(uv, halfSize, lightRightwardDir);
 
-	//*********************************************************************
-	//
-	// Replace this comment block with Ray-Tracing code
-	//
-	//*********************************************************************
+
+	///*********************************************************************
+	///
+	/// Replace this comment block with Ray-Tracing code
+	///
+	///*********************************************************************
+
 
 	// If the light is pointing away from cookie-texture, then it can not add to the texture.
 	if (dot(lightRay.Direction, _LightForwardDir.xyz) <= 0.0)
@@ -125,6 +129,21 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	///
 	/// Convert our lightPoint in World-Space into a uv-coord.
 	///
+	float3 planeCoord = lightPoint - v0;
+	float uOffset = dot(planeCoord, lightRightwardDir.xyz);
+	float vOffset = dot(planeCoord, _LightUpwardDir.xyz);
+	float2 uvPrime = float2(uOffset, vOffset);
+	uvPrime *= (1.0 / halfSize);
 
-	Result[id.xy] = float4(1.0, 1.0, 1.0, 1.0);
+	// Check to see if we're even in the allowed texture area.
+	if (dot(uvPrime, uvPrime) > 1.0)
+		return;
+
+	float2 pix = uvPrime + 1.0;
+	pix *= (1.0 / 2.0);
+	pix *= (width - 1.0);
+
+	int2 pixInt = pix;
+
+	Result[pixInt.xy] = float4(1.0, 1.0, 1.0, 1.0);
 }
