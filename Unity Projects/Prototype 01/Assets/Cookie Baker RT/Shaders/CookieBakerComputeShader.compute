@@ -31,17 +31,26 @@ struct LightRay
 	float3 Position;
 };
 
+// Creates our inital light rays.
+// uv: The uv position that the ray hits in the final texture result.
+// halfSize: If we were to convert our resulting cookie texture to World-Space, this would be half its width (or height) at the given focus distance.
+// lightRightwardDir: This is the light-source's Right Direction in World-Space. This value wasn't given to the shader, so it had to be computed.
 LightRay CreateInitialLightRay(float2 uv, float halfSize, float4 lightRightwardDir)
 {
 	LightRay result;
 
-	result.Color = float3(1.0, 1.0, 1.0);
-	result.Position = _LightPosition.xyz;
+	result.Color = float3(1.0, 1.0, 1.0);	// We will start with a pure white light, if the User wants to tint it, they can tint the actual light.
+	result.Position = _LightPosition.xyz;	// Our starting position is the position of our light-source.
 
-	float3 hitPos = (uv.x * halfSize) * lightRightwardDir.xyz;
-	hitPos += (uv.y * halfSize) * _LightUpwardDir.xyz;
-	hitPos += _ShadowFocusDistance * _LightForwardDir.xyz;
+	// If we were to place our shadow texture in World-Space at the distance given by _ShadowFocusDistance, 
+	// we want the offset vector that goes from our lightSource to our uv position. In other words, if we 
+	// add this vector to our position, we will get a World-Space position that matches up to the given 
+	// uv-position at the _ShadowFocusDistance.
+	float3 hitPosOffset = (uv.x * halfSize) * lightRightwardDir.xyz;
+	hitPosOffset += (uv.y * halfSize) * _LightUpwardDir.xyz;
+	hitPosOffset += _ShadowFocusDistance * _LightForwardDir.xyz;
 
+	// Normalize the offset we calculated into a direction vector.
 	result.Direction = normalize(hitPos);
 
 	return result;
@@ -74,6 +83,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	float4	lightRightwardDir	= float4(cross(_LightUpwardDir.xyz, _LightForwardDir.xyz), 0.0);
 	float	halfSize			= _ShadowFocusDistance * tan(_SpotLightAngle);
 
+	// Create inital LightRay for our Ray-Tracing.
 	LightRay lightRay = CreateInitialLightRay(uv, halfSize, lightRightwardDir);
 
 	Result[id.xy] = float4(1.0, 1.0, 1.0, 1.0);
