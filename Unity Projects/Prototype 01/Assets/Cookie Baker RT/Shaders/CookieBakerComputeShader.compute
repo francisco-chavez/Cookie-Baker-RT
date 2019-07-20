@@ -9,8 +9,11 @@ struct ObjectDatum
 };
 
 float4							_LightPosition;
+float4							_LightForwardDir;
+float4							_LightUpwardDir;
 float							_InnerRange;
 float							_OuterRange;
+float							_SpotLightAngle;
 StructuredBuffer<ObjectDatum>	_ObjectData;
 StructuredBuffer<float3>		_Vertices;
 StructuredBuffer<int>			_Indices;

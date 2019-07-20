@@ -414,9 +414,11 @@ namespace FCT.CookieBakerP01
 			vertexBuffer.SetData(vertexList.ToArray());
 			indexBuffer.SetData(indexList.ToArray());
 
-
+			s_computeShader.SetFloat("_SpotLightAngle", s_currentLightComponent.spotAngle / 2.0f);
 			s_computeShader.SetTexture(0, "Result", renderTexture);
-			s_computeShader.SetVector("_LightPosition", new Vector4(lightCenter.x, lightCenter.y, lightCenter.z, 1.0f));
+			s_computeShader.SetVector("_LightPosition", lightCenter.Position());
+			s_computeShader.SetVector("_LightForwardDir", s_currentLightComponent.transform.forward.Direction());
+			s_computeShader.SetVector("_LightUpwardDir", s_currentLightComponent.transform.up.Direction());
 			s_computeShader.SetFloat("_InnerRange", s_innerRadius);
 			s_computeShader.SetFloat("_OuterRange", s_outerRadius);
 			s_computeShader.SetBuffer(0, "_ObjectData", objectBuffer);
