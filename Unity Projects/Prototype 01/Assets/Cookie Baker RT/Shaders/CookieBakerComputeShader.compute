@@ -51,7 +51,7 @@ LightRay CreateInitialLightRay(float2 uv, float halfSize, float4 lightRightwardD
 	hitPosOffset += _ShadowFocusDistance * _LightForwardDir.xyz;
 
 	// Normalize the offset we calculated into a direction vector.
-	result.Direction = normalize(hitPos);
+	result.Direction = normalize(hitPosOffset);
 
 	return result;
 }
@@ -85,6 +85,46 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
 	// Create inital LightRay for our Ray-Tracing.
 	LightRay lightRay = CreateInitialLightRay(uv, halfSize, lightRightwardDir);
+
+	//*********************************************************************
+	//
+	// Replace this comment block with Ray-Tracing code
+	//
+	//*********************************************************************
+
+	// If the light is pointing away from cookie-texture, then it can not add to the texture.
+	if (dot(lightRay.Direction, _LightForwardDir.xyz) <= 0.0)
+		return;
+
+	/// 
+	/// Convert our lightRay into a point on the plane that our Cookie will cover in World-Space at a 
+	/// distance of _ShadowFocusDistance from our light-source
+	///
+
+	// This is uv-point (0, 0) in our plane.
+	float3 v0			= (_ShadowFocusDistance * _LightForwardDir + _LightPosition).xyz;
+
+	// This is the LightRay's current starting point.
+	float3 p0			= lightRay.Position;
+
+
+	// This is the delta vector from our LightRay's starting point to plane's 0-point.
+	float3 W			= p0 - v0;
+	
+	// Normal vector for our plain
+	float3 N			= (-_LightForwardDir).xyz;
+
+
+	// This is the scale factor by which we multiple our lightRay's direction in order to find the offset 
+	// for the intersection point
+	float s_i			= dot(-N, W) / dot(N, lightRay.Direction);
+
+	// This is our intersection point with the plane.
+	float3 lightPoint	= (s_i * lightRay.Direction) + p0;
+
+	///
+	/// Convert our lightPoint in World-Space into a uv-coord.
+	///
 
 	Result[id.xy] = float4(1.0, 1.0, 1.0, 1.0);
 }
