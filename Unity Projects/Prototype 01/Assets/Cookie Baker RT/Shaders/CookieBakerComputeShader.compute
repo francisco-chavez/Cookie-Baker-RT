@@ -8,6 +8,9 @@ struct ObjectDatum
 	int			IndicesCount;
 };
 
+static const float EPSILON = 1e-8;
+
+int								_MaxSegments;
 float4							_LightPosition;
 float4							_LightForwardDir;
 float4							_LightUpwardDir;
@@ -26,9 +29,16 @@ RWTexture2D<float4> Result;
 
 struct LightRay
 {
-	float3 Direction;
-	float3 Color;
-	float3 Position;
+	float3		Direction;
+	float3		Color;
+	float3		Position;
+};
+
+struct RayHit
+{
+	float3		Position;
+	float		Distance;
+	float3		Normal;
 };
 
 // Creates our inital light rays.
@@ -54,6 +64,96 @@ LightRay CreateInitialLightRay(float2 uv, float halfSize, float4 lightRightwardD
 	result.Direction = normalize(hitPosOffset);
 
 	return result;
+}
+
+RayHit CreateRayHit()
+{
+	RayHit hit;
+
+	hit.Position = float3(0.0f, 0.0f, 0.0f);
+	hit.Distance = 1.#INF;
+	hit.Normal = float3(0.0f, 0.0f, 0.0f);
+
+	return hit;
+}
+
+
+bool IntersectTriangle_MT97(LightRay ray, float3 vert0, float3 vert1, float3 vert2, inout float t, inout float u, inout float v)
+{
+	// Find vectors for two edges sharing vert0
+	float3 edge1 = vert1 - vert0;
+	float3 edge2 = vert2 - vert0;
+
+	// Begin calculating determinate - also used to calculate U parameter
+	float3 pvec = cross(ray.Direction, edge2);
+
+	// If determinant is near zero, ray lies in plane of triangle
+	float det = dot(edge1, pvec);
+
+	// use backface culling
+	if (det < EPSILON)
+		return false;
+
+	float inv_det = 1.0f / det;
+
+	// Calculate distance from vert0 to ray origin
+	float3 tvec = ray.Position - vert0;
+
+	// Calculate U parameter and test bounds
+	u = dot(tvec, pvec) * inv_det;
+	if (u < 0 || 1 < u)
+		return false;
+
+	// prepare to test V parameter
+	float3 qvec = cross(tvec, edge1);
+
+	// valculate V parameter and test bounds
+	v = dot(ray.Direction, qvec) * inv_det;
+	if (v < 0 || 1 < v)
+		return false;
+
+	// calculate t, ray intersects triangle
+	t = dot(edge2, qvec) * inv_det;
+
+	return true;
+}
+
+void IntersectMeshObject(LightRay lightRay, inout RayHit bestHit, ObjectDatum meshObject)
+{
+	uint offset = meshObject.IndicesOffset;
+	uint count	= offset + meshObject.IndicesCount;
+
+	for (uint i = offset; i < count; i += 3)
+	{
+		float3 v0 = (mul(meshObject.LocalToWorldMatrix, float4(_Vertices[_Indices[i + 0]], 1.0f))).xyz;
+		float3 v1 = (mul(meshObject.LocalToWorldMatrix, float4(_Vertices[_Indices[i + 1]], 1.0f))).xyz;
+		float3 v2 = (mul(meshObject.LocalToWorldMatrix, float4(_Vertices[_Indices[i + 2]], 1.0f))).xyz;
+
+		float t, u, v;
+		if (IntersectTriangle_MT97(lightRay, v0, v1, v2, t, u, v))
+		{
+			if (0 < t && t < bestHit.Distance)
+			{
+				bestHit.Distance	= t;
+				bestHit.Position	= lightRay.Position + t * lightRay.Direction;
+				bestHit.Normal		= normalize(cross(v1 - v0, v2 - v0));
+			}
+		}
+	}
+}
+
+RayHit Trace(LightRay ray)
+{
+	RayHit bestHit = CreateRayHit();
+	uint count, stride, i;
+
+	_ObjectData.GetDimensions(count, stride);
+	for (i = 0; i < count; i++)
+	{
+		IntersectMeshObject(ray, bestHit, _ObjectData[i]);
+	}
+
+	return bestHit;
 }
 
 
@@ -88,12 +188,24 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	///
 	LightRay lightRay = CreateInitialLightRay(uv, halfSize, lightRightwardDir);
 
-
-	///*********************************************************************
+	
 	///
-	/// Replace this comment block with Ray-Tracing code
+	/// Ray tracing code
 	///
-	///*********************************************************************
+	for (int i = 0; i < _MaxSegments; i++)
+	{
+		RayHit hit = Trace(lightRay);
+		if (hit.Distance < (2.0 * _OuterRange))
+		{
+			lightRay.Color *= 0.75f;
+			lightRay.Direction = hit.Normal;
+			lightRay.Position = hit.Position + (0.0005f * hit.Normal);
+		}
+		else
+		{
+			i = _MaxSegments;
+		}
+	}
 
 
 	// If the light is pointing away from cookie-texture, then it can not add to the texture.
@@ -129,10 +241,10 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	///
 	/// Convert our lightPoint in World-Space into a uv-coord.
 	///
-	float3 planeCoord = lightPoint - v0;
-	float uOffset = dot(planeCoord, lightRightwardDir.xyz);
-	float vOffset = dot(planeCoord, _LightUpwardDir.xyz);
-	float2 uvPrime = float2(uOffset, vOffset);
+	float3	planeCoord = lightPoint - v0;
+	float	uOffset = dot(planeCoord, lightRightwardDir.xyz);
+	float	vOffset = dot(planeCoord, _LightUpwardDir.xyz);
+	float2	uvPrime = float2(uOffset, vOffset);
 	uvPrime *= (1.0 / halfSize);
 
 	// Check to see if we're even in the allowed texture area.
@@ -145,5 +257,5 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
 	int2 pixInt = pix;
 
-	Result[pixInt.xy] = float4(1.0, 1.0, 1.0, 1.0);
+	Result[pixInt.xy] += float4(1.0, 1.0, 1.0, 1.0);
 }
