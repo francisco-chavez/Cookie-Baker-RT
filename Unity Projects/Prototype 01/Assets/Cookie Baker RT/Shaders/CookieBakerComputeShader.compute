@@ -65,10 +65,10 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
 	Result.GetDimensions(width, height);
 
-	float pixX = id.x;
-	float pixY = id.y;
+	float pixX = id.x + 0.5f;
+	float pixY = id.y + 0.5f;
 
-	float2 uv = float2(pixX / (width - 1), pixY / (height - 1));
+	float2 uv = float2(pixX / width, pixY / height);
 	uv *= 2.0;
 	uv -= 1.0;
 
@@ -141,7 +141,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
 	float2 pix = uvPrime + 1.0;
 	pix *= (1.0 / 2.0);
-	pix *= (width - 1.0);
+	pix *= width;
 
 	int2 pixInt = pix;
 
