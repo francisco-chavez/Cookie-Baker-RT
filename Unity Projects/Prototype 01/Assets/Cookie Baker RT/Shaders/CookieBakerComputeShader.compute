@@ -77,46 +77,79 @@ RayHit CreateRayHit()
 	return hit;
 }
 
-
-bool IntersectTriangle_MT97(LightRay ray, float3 vert0, float3 vert1, float3 vert2, inout float t, inout float u, inout float v)
+// https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/barycentric-coordinates
+bool RayTriangleIntersect(LightRay ray, float3 v0, float3 v1, float3 v2, 
+						  inout float t, inout float u, inout float v, 
+						  inout float3 P, inout float3 N)
 {
-	// Find vectors for two edges sharing vert0
-	float3 edge1 = vert1 - vert0;
-	float3 edge2 = vert2 - vert0;
+	// Compute plane's normal
+	float3 v0v1 = v1 - v0;
+	float3 v0v2 = v2 - v0;
 
-	// Begin calculating determinate - also used to calculate U parameter
-	float3 pvec = cross(ray.Direction, edge2);
+	// No need to normalize
+	N = cross(v0v1, v0v2);
+	float denom = dot(N, N);
 
-	// If determinant is near zero, ray lies in plane of triangle
-	float det = dot(edge1, pvec);
+	///
+	/// Step 1: Finding P
+	///
 
-	// use backface culling
-	if (det < EPSILON)
-		return false;
+	// Check if ray and plane are parallel?
+	float NdotRayDirection = dot(N, ray.Direction);
+	if (abs(NdotRayDirection) < EPSILON)
+		return false;	// They are parallel so they don't intersect
 
-	float inv_det = 1.0f / det;
+	// Compute d parameter using equation 2
+	float d = dot(N, v0);
 
-	// Calculate distance from vert0 to ray origin
-	float3 tvec = ray.Position - vert0;
+	// Compute t (equation 3)
+	t = (dot(N, ray.Position) + d) / NdotRayDirection;
 
-	// Calculate U parameter and test bounds
-	u = dot(tvec, pvec) * inv_det;
-	if (u < 0 || 1 < u)
-		return false;
+	// Check if the triangle is behind the ray.
+	if (t < 0)
+		return false;	// The triangle is behind the ray
 
-	// prepare to test V parameter
-	float3 qvec = cross(tvec, edge1);
+	// Compute the intersection point using equation 1.
+	P = ray.Position + (t * ray.Direction);
 
-	// valculate V parameter and test bounds
-	v = dot(ray.Direction, qvec) * inv_det;
-	if (v < 0 || 1 < v)
-		return false;
 
-	// calculate t, ray intersects triangle
-	t = dot(edge2, qvec) * inv_det;
+	///
+	/// Step 2: Inside-outside test
+	///
 
-	return true;
+	float3 C;	// Vector perpendicular to triangle's plane
+
+	// Edge 0
+	float3 edge0 = v1 - v0;
+	float3 vp0 = P - v0;
+	C = cross(edge0, vp0);
+	if (dot(N, C) < 0)
+		return false;	// P is on the right side
+						// Note from FCT: P needs to be on the left-side of the edge (vector v0v1) in order to be inside the triangle.
+
+	// Edge 1
+	float3 edge1 = v2 - v1;
+	float3 vp1 = P - v1;
+	C = cross(edge1, vp1);
+	u = dot(N, C);
+	if (u < 0)
+		return false;	// P is on the right side.
+
+	// Edge 2
+	float3 edge2 = v0 - v2;
+	float3 vp2 = P - v2;
+	C = cross(edge2, vp2);
+	v = dot(N, C);
+	if (v < 0)
+		return false;	// P is on the right side.
+
+	u /= denom;
+	v /= denom;
+	N = normalize(N);
+
+	return true; // This ray hits the triangle.
 }
+
 
 void IntersectMeshObject(LightRay lightRay, inout RayHit bestHit, ObjectDatum meshObject)
 {
@@ -130,13 +163,17 @@ void IntersectMeshObject(LightRay lightRay, inout RayHit bestHit, ObjectDatum me
 		float3 v2 = (mul(meshObject.LocalToWorldMatrix, float4(_Vertices[_Indices[i + 2]], 1.0f))).xyz;
 
 		float t, u, v;
-		if (IntersectTriangle_MT97(lightRay, v0, v1, v2, t, u, v))
+		float3 P;
+		float3 N;
+		bool theresAHit = RayTriangleIntersect(lightRay, v0, v1, v2, t, u, v, P, N);
+
+		if (theresAHit)
 		{
-			if (0 < t && t < bestHit.Distance)
+			if (t < bestHit.Distance)
 			{
 				bestHit.Distance	= t;
-				bestHit.Position	= lightRay.Position + t * lightRay.Direction;
-				bestHit.Normal		= normalize(cross(v1 - v0, v2 - v0));
+				bestHit.Position	= P;
+				bestHit.Normal		= N;
 			}
 		}
 	}
