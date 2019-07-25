@@ -39,6 +39,7 @@ struct RayHit
 	float3		Position;
 	float		Distance;
 	float3		Normal;
+	bool		HasAHit;
 };
 
 // Creates our inital light rays.
@@ -70,9 +71,10 @@ RayHit CreateRayHit()
 {
 	RayHit hit;
 
-	hit.Position = float3(0.0f, 0.0f, 0.0f);
-	hit.Distance = 1.#INF;
-	hit.Normal = float3(0.0f, 0.0f, 0.0f);
+	hit.Position	= float3(0.0f, 0.0f, 0.0f);
+	hit.Distance	= 1.#INF;
+	hit.Normal		= float3(0.0f, 0.0f, 0.0f);
+	hit.HasAHit		= false;
 
 	return hit;
 }
@@ -150,44 +152,140 @@ bool RayTriangleIntersect(LightRay ray, float3 v0, float3 v1, float3 v2,
 	return true; // This ray hits the triangle.
 }
 
-
-void IntersectMeshObject(LightRay lightRay, inout RayHit bestHit, ObjectDatum meshObject)
+bool TriangleIntersect(LightRay lightRay, float3 vert0, float3 vert1, float3 vert2, inout float s, inout float3 n)
 {
-	uint offset = meshObject.IndicesOffset;
-	uint count	= offset + meshObject.IndicesCount;
+	float3 edge0 = vert1 - vert0;
+	float3 edge1 = vert2 - vert0;
 
-	for (uint i = offset; i < count; i += 3)
-	{
-		float3 v0 = (mul(meshObject.LocalToWorldMatrix, float4(_Vertices[_Indices[i + 0]], 1.0f))).xyz;
-		float3 v1 = (mul(meshObject.LocalToWorldMatrix, float4(_Vertices[_Indices[i + 1]], 1.0f))).xyz;
-		float3 v2 = (mul(meshObject.LocalToWorldMatrix, float4(_Vertices[_Indices[i + 2]], 1.0f))).xyz;
+	// Unity uses clockwise vert winding for a triangle's forward direction, and it uses a 
+	// Left-Handed-Space. 
+	// * Now, place vert0 at the bottom-left, vert1 at the top-right, and vert2 at
+	// * the bottom-right.
+	// * Place your left-hand at vert0.
+	// * Point your index-finger (of your left-hand) to vert1.
+	// * Point your middle-finger (of your left-hand) to vert2.
+	// * Stick our your thumb. It should be pointing at your face. 
+	// You just did a rough estimate of the directions in a left-handed cross product. So, your 
+	// index-finger was edge0, which goes from vert0's position to vert1's position. Your middle-finger
+	// was edge0, which goes from vert0's position to vert2's position.
 
-		float t, u, v;
-		float3 P;
-		float3 N;
-		bool theresAHit = RayTriangleIntersect(lightRay, v0, v1, v2, t, u, v, P, N);
+	// This is the normal vector of the triangle that's created by our verts.
+	n = cross(edge0, edge1);
+	n = normalize(n);
 
-		if (theresAHit)
-		{
-			if (t < bestHit.Distance)
-			{
-				bestHit.Distance	= t;
-				bestHit.Position	= P;
-				bestHit.Normal		= N;
-			}
-		}
-	}
+	// This dot product is either really, really close to zero, meaning that the light travels in parallel 
+	// to the plane and will never intersect (assuming it's not on the plane). Or, this value is negative,
+	// meaning that the plain is somewhere in the oppisite direction that are light-ray is moving.
+	if (dot(n, lightRay.Direction) < EPSILON)
+		return false;
+
+	// This is position (0, 0) of the plane that is crreated by our triangle.
+	float3 v0 = vert0;
+
+	// This is the LightRay's current starting point.
+	float3	p0 = lightRay.Position;
+
+	// This is the delta vector from our LightRay's starting point to plane's 0-point.
+	float3	W = p0 - v0;
+
+	// This is the scale factor by which we multiple our lightRay's direction in order to find the offset 
+	// for the intersection point.
+	s = dot(-n, W) / dot(n, lightRay.Direction);
+
+	// This is our intersection point with the plane.
+	float3	intersectionPoint = (s * lightRay.Direction) + p0;
+
+	/// 
+	/// We now know where the light will hit the triangle's plane, but we don't know if it will hit the 
+	/// triangle itself. That's the next thing we need to check.
+	/// -FCT
+	///
+
+	// The cross product of edge0 and n, gives me a vector that points away from the direction that's 
+	// inside the triangle from edge0. Since this vector is in the wrong direction, than any point away
+	// from a point on edge0 (like vert0), should create a non-positive value when we take its dot product
+	// with vector 'c'. And, if that value isn't non-positive (0 is OK), then it's outside of the triangle.
+	// -FCT
+	float3 c = cross(edge0, n);
+	float3 delta = intersectionPoint - vert0;
+	if (dot(delta, c) > 0)
+		return false;
+
+	// 0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
+	// Before, the cross product gave us a vector that was pointing away from the insdie of the triangle.
+	// But, before, we were using an edge that was following the clock-wise direction that creates the 
+	// forward (front-facing) direction of our triangle. 'edge1' doesn't follow the clock-wise direction,
+	// and because of this, it gave us a vector that points to the inside of the triangle. Since our 
+	// directional vector now points to the inside of the triangle, now it's the negative values created by
+	// our dot-product that indicate a point outside the triangle.
+	// -FCT
+	c = cross(edge1, n);
+	if (dot(delta, c) < 0)
+		return false;
+
+	// This one follows a clock-wise direction, so it'll be like edge0.
+	c = cross((vert2 - vert1), n);
+	delta = intersectionPoint - vert1;	// We want our reference point to be on the edge we used to create 'c'.
+	if (dot(delta, c) > 0)
+		return false;
+
+	return true;
 }
 
-RayHit Trace(LightRay ray)
+
+RayHit Trace(LightRay lightRay)
 {
 	RayHit bestHit = CreateRayHit();
-	uint count, stride, i;
+	uint objectCount, stride, i;
 
-	_ObjectData.GetDimensions(count, stride);
-	for (i = 0; i < count; i++)
+	_ObjectData.GetDimensions(objectCount, stride);
+	for (i = 0; i < objectCount; i++)
 	{
-		IntersectMeshObject(ray, bestHit, _ObjectData[i]);
+		ObjectDatum meshObject = _ObjectData[i];
+
+		uint offset		= meshObject.IndicesOffset;
+		uint indexCount = meshObject.IndicesCount;
+
+		for (uint j = 0; j < indexCount; j += 3)
+		{
+			uint subIndex0 = j + offset;
+
+			uint index0 = _Indices[subIndex0 + 0];
+			uint index1 = _Indices[subIndex0 + 1];
+			uint index2 = _Indices[subIndex0 + 2];
+
+			// By setting the w component to '1.0', we enable xyz components to be transposed through matrix 
+			// multiplication. This is why positions have 'w = 1.0' and directions have 'w = 0.0'. There's more to
+			// it than that, but the math we're doing here doesn't use the other things this enables.
+			// -FCT
+			float4	v0_local = float4(_Vertices[index0], 1.0f);
+			float4	v1_local = float4(_Vertices[index1], 1.0f);
+			float4	v2_local = float4(_Vertices[index2], 1.0f);
+
+			float3	v0 = (mul(meshObject.LocalToWorldMatrix, v0_local)).xyz;
+			float3	v1 = (mul(meshObject.LocalToWorldMatrix, v1_local)).xyz;
+			float3	v2 = (mul(meshObject.LocalToWorldMatrix, v2_local)).xyz;
+
+			float	t = 0.0;
+			float	u = -1.0;
+			float	v = -1.0;
+			//float3	P = float3(0.0, 0.0, 0.0);
+			//float3	N = float3(0.0, 0.0, 0.0);
+			float3	n = float3(0.0, 0.0, 0.0);;
+
+			bool	theresAHit = TriangleIntersect(lightRay, v0, v1, v2, t, n);
+
+			if (theresAHit)
+			{
+				if (t < bestHit.Distance)
+				{
+					bestHit.Distance	= t;
+					bestHit.Position	= lightRay.Position + (t * lightRay.Direction) + (0.0005 * n);
+					bestHit.Normal		= n;
+					bestHit.HasAHit		= true;
+				}
+			}
+		}
 	}
 
 	return bestHit;
@@ -209,14 +307,6 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	uv *= 2.0;
 	uv -= 1.0;
 
-	bool outOfBounds = dot(uv, uv) > 1.0;
-
-	if (outOfBounds)
-	{
-		Result[id.xy] = float4(0.0, 0.0, 0.0, 0.0);
-		return;
-	}
-
 	float4	lightRightwardDir	= float4(cross(_LightUpwardDir.xyz, _LightForwardDir.xyz), 0.0);
 	float	halfSize			= _ShadowFocusDistance * tan(_SpotLightAngle);
 
@@ -232,7 +322,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	for (int i = 0; i < _MaxSegments; i++)
 	{
 		RayHit hit = Trace(lightRay);
-		if (hit.Distance < (2.0 * _OuterRange))
+		if (hit.HasAHit)
 		{
 			lightRay.Color *= 0.75f;
 			lightRay.Direction = hit.Normal;
@@ -245,54 +335,55 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	}
 
 
-	// If the light is pointing away from cookie-texture, then it can not add to the texture.
-	if (dot(lightRay.Direction, _LightForwardDir.xyz) <= 0.0)
-		return;
-
 	/// 
 	/// Convert our lightRay into a point on the plane that our Cookie will cover in World-Space at a 
 	/// distance of _ShadowFocusDistance from our light-source
 	///
 
+	// If the light is pointing away from cookie-texture, then it can not add to the texture.
+	if (dot(lightRay.Direction, _LightForwardDir.xyz) <= 0.0)
+		return;
+
 	// This is uv-point (0, 0) in our plane.
-	float3 v0			= (_ShadowFocusDistance * _LightForwardDir + _LightPosition).xyz;
+	float3	v0			= (_ShadowFocusDistance * _LightForwardDir + _LightPosition).xyz;
 
 	// This is the LightRay's current starting point.
-	float3 p0			= lightRay.Position;
+	float3	p0			= lightRay.Position;
 
 
 	// This is the delta vector from our LightRay's starting point to plane's 0-point.
-	float3 W			= p0 - v0;
+	float3	W			= p0 - v0;
 	
 	// Normal vector for our plain
-	float3 N			= (-_LightForwardDir).xyz;
+	float3	N			= (-_LightForwardDir).xyz;
 
 
 	// This is the scale factor by which we multiple our lightRay's direction in order to find the offset 
 	// for the intersection point
-	float s_i			= dot(-N, W) / dot(N, lightRay.Direction);
+	float	s_i			= dot(-N, W) / dot(N, lightRay.Direction);
 
 	// This is our intersection point with the plane.
-	float3 lightPoint	= (s_i * lightRay.Direction) + p0;
+	float3	lightPoint	= (s_i * lightRay.Direction) + p0;
 
 	///
 	/// Convert our lightPoint in World-Space into a uv-coord.
 	///
-	float3	planeCoord = lightPoint - v0;
-	float	uOffset = dot(planeCoord, lightRightwardDir.xyz);
-	float	vOffset = dot(planeCoord, _LightUpwardDir.xyz);
-	float2	uvPrime = float2(uOffset, vOffset);
+	float3	planeCoord	= lightPoint - v0;
+	float	uOffset		= dot(planeCoord, lightRightwardDir.xyz);
+	float	vOffset		= dot(planeCoord, _LightUpwardDir.xyz);
+	float2	uvPrime		= float2(uOffset, vOffset);
 	uvPrime *= (1.0 / halfSize);
 
 	// Check to see if we're even in the allowed texture area.
-	if (dot(uvPrime, uvPrime) > 1.0)
+	if (uvPrime.x < -1 || 1 < uvPrime.x)
+		return;
+	if (uvPrime.y < -1 || 1 < uvPrime.y)
 		return;
 
 	float2 pix = uvPrime + 1.0;
-	pix *= (1.0 / 2.0);
-	pix *= width;
+	pix *= (width / 2.0);
 
 	int2 pixInt = pix;
 
-	Result[pixInt.xy] += float4(1.0, 1.0, 1.0, 1.0);
+	Result[pixInt.xy] += float4(lightRay.Color, 1.0);
 }

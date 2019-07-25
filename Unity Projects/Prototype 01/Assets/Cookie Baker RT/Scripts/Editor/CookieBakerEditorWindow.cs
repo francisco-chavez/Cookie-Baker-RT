@@ -287,6 +287,7 @@ namespace FCT.CookieBakerP01
 			Handles.SphereHandleCap(0, worldLightPos, Quaternion.identity, 2.0f * s_outerRadius, EventType.Repaint);
 		}
 
+
 		private IEnumerator CookieBaking()
 		{
 			yield return null;
@@ -416,7 +417,7 @@ namespace FCT.CookieBakerP01
 
 			s_computeShader.SetInt("_MaxSegments", 1);
 			s_computeShader.SetFloat("_SpotLightAngle", s_currentLightComponent.spotAngle / 2.0f);
-			s_computeShader.SetFloat("_ShadowFocusDistance", 50.0f);
+			s_computeShader.SetFloat("_ShadowFocusDistance", 4.0f);
 			s_computeShader.SetTexture(0, "Result", renderTexture);
 			s_computeShader.SetVector("_LightPosition", lightCenter.Position());
 			s_computeShader.SetVector("_LightForwardDir", s_currentLightComponent.transform.forward.Direction());
