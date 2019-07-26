@@ -80,6 +80,12 @@ RayHit CreateRayHit()
 }
 
 // https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/barycentric-coordinates
+// I double checked the math on this one to make sure that it works in a Left-Hand coord system and 
+// clockwise vert winding order for front facing. The direction of the normal looks correct and the
+// math for checking if we hit inside/outside the triangle looks correct. I don't understand the bit
+// of math where they manage to find 't' without normalizing the normal vector, but the rest looks fine
+// for Unity (as far as I can tell).
+// -FCT
 bool RayTriangleIntersect(LightRay ray, float3 v0, float3 v1, float3 v2, 
 						  inout float t, inout float u, inout float v, 
 						  inout float3 P, inout float3 N)
@@ -307,6 +313,7 @@ RayHit Trace(LightRay lightRay)
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
+	Result[id.xy] = float4(Result[id.xy].xyz, 1.0);
 	uint width;
 	uint height;
 
@@ -397,5 +404,5 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	float2 pix = uvPrime + 1.0;
 	pix *= (width / 2.0);
 
-	Result[trunc(pix)] += float4(lightRay.Color, 1.0);
+	Result[trunc(pix)] += float4(lightRay.Color, 0.0);
 }

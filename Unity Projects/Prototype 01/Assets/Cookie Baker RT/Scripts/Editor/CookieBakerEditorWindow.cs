@@ -415,31 +415,32 @@ namespace FCT.CookieBakerP01
 
 			for (int i = 0; i < processMeshRenderer.Count; i++)
 			{
-				var mesh = processMeshFilter[i].sharedMesh;
-				var meshVerts = mesh.vertices;
-				var meshIndex = mesh.triangles;
+				var mesh				= processMeshFilter[i].sharedMesh;
+				var meshVerts			= mesh.vertices;
+				var meshTriangleIndices = mesh.triangles;
 
 				var meshRefDatum = new MeshObject()
 				{
 					LocalToWorldMatrix	= processMeshRenderer[i].localToWorldMatrix,
-					IndicesOffset		= indexList.Count,
-					IndicesCount		= meshIndex.Length
+					IndicesOffset		= indexList.Count,				// The starting index of the vert-index for this object's mesh.
+					IndicesCount		= meshTriangleIndices.Length	// The number of indices used to form all of the mesh triangles.
 				};
 
 				meshObjecRefData.Add(meshRefDatum);
 				vertexList.AddRange(meshVerts);
-				indexList.AddRange(meshIndex);
+				indexList.AddRange(meshTriangleIndices);
 			}
 
 			yield return null;
 
-			ComputeBuffer objectBuffer = new ComputeBuffer(meshObjecRefData.Count, 72);
-			ComputeBuffer vertexBuffer = new ComputeBuffer(vertexList.Count, 12);
-			ComputeBuffer indexBuffer = new ComputeBuffer(indexList.Count, 4);
+			ComputeBuffer objectBuffer	= new ComputeBuffer(meshObjecRefData.Count, 72);
+			ComputeBuffer vertexBuffer	= new ComputeBuffer(vertexList.Count, 12);
+			ComputeBuffer indexBuffer	= new ComputeBuffer(indexList.Count, 4);
 
-			objectBuffer.SetData(meshObjecRefData.ToArray());
-			vertexBuffer.SetData(vertexList.ToArray());
-			indexBuffer.SetData(indexList.ToArray());
+			objectBuffer.SetData(meshObjecRefData);
+			vertexBuffer.SetData(vertexList);
+			indexBuffer.SetData(indexList);
+
 
 			s_computeShader.SetInt("_MaxSegments", s_maxBounceCount);
 			s_computeShader.SetFloat("_SpotLightAngle", s_currentLightComponent.spotAngle / 2.0f);
@@ -565,8 +566,8 @@ namespace FCT.CookieBakerP01
 		private struct MeshObject
 		{
 			public Matrix4x4	LocalToWorldMatrix; // 16 floats, so 64 bytes
-			public int			IndicesOffset;		// 4 bytes
-			public int			IndicesCount;		// 4 bytes
+			public Int32		IndicesOffset;		// 4 bytes
+			public Int32		IndicesCount;		// 4 bytes
 		}
 
 		#endregion
