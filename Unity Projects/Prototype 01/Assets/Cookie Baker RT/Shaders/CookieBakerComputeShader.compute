@@ -158,7 +158,7 @@ bool TriangleIntersect(LightRay lightRay, float3 vert0, float3 vert1, float3 ver
 	float3 edge1 = vert2 - vert0;
 
 	// Unity uses clockwise vert winding for a triangle's forward direction, and it uses a 
-	// Left-Handed-Space. 
+	// Left-Handed-Space which is something that must be kept in mind when doing cross products. 
 	// * Now, place vert0 at the bottom-left, vert1 at the top-right, and vert2 at
 	// * the bottom-right.
 	// * Place your left-hand at vert0.
@@ -196,6 +196,18 @@ bool TriangleIntersect(LightRay lightRay, float3 vert0, float3 vert1, float3 ver
 	float3	intersectionPoint = (s * lightRay.Direction) + p0;
 
 	/// 
+	/// Check to see if we are within the actionable range. If we are outside of the actionable range, then 
+	/// it doesn't matter if we intersected a triangle, otherwise, what was the point of giving the user the
+	/// option of selecting an actionable range.
+	///
+	float3 deltaFromLightSource = intersectionPoint - _LightPosition.xyz;
+	float distFromLight2 = dot(deltaFromLightSource, deltaFromLightSource);
+	if (distFromLight2 < (_InnerRange * _InnerRange))
+		return false;	// This intersection point was within the exclusion zone.
+	if (distFromLight2 > (_OuterRange * _OuterRange))
+		return false;	// This intersection point was outside of the inclusion zone.
+
+	/// 
 	/// We now know where the light will hit the triangle's plane, but we don't know if it will hit the 
 	/// triangle itself. That's the next thing we need to check.
 	/// -FCT
@@ -211,7 +223,7 @@ bool TriangleIntersect(LightRay lightRay, float3 vert0, float3 vert1, float3 ver
 	if (dot(delta, c) > 0)
 		return false;
 
-	// 0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
+	// 
 	// Before, the cross product gave us a vector that was pointing away from the insdie of the triangle.
 	// But, before, we were using an edge that was following the clock-wise direction that creates the 
 	// forward (front-facing) direction of our triangle. 'edge1' doesn't follow the clock-wise direction,
