@@ -50,16 +50,16 @@ LightRay CreateInitialLightRay(float2 uv, float halfSize, float4 lightRightwardD
 {
 	LightRay result;
 
-	result.Color = float3(1.0, 1.0, 1.0);	// We will start with a pure white light, if the User wants to tint it, they can tint the actual light.
-	result.Position = _LightPosition.xyz;	// Our starting position is the position of our light-source.
+	result.Color		= float3(1.0, 1.0, 1.0);	// We will start with a pure white light, if the User wants to tint it, they can tint the actual light.
+	result.Position		= _LightPosition.xyz;	// Our starting position is the position of our light-source.
 
 	// If we were to place our shadow texture in World-Space at the distance given by _ShadowFocusDistance, 
 	// we want the offset vector that goes from our lightSource to our uv position. In other words, if we 
 	// add this vector to our position, we will get a World-Space position that matches up to the given 
 	// uv-position at the _ShadowFocusDistance.
-	float3 hitPosOffset = (uv.x * halfSize) * lightRightwardDir.xyz;
-	hitPosOffset += (uv.y * halfSize) * _LightUpwardDir.xyz;
-	hitPosOffset += _ShadowFocusDistance * _LightForwardDir.xyz;
+	float3 hitPosOffset = ((uv.x * halfSize) * lightRightwardDir.xyz)		// Offet to the right, of the shadow-plane origin
+						+ ((uv.y * halfSize) * _LightUpwardDir.xyz)			// Offset to the up, of the shodow-plane origin
+						+ (_ShadowFocusDistance * _LightForwardDir.xyz);	// Offset shadow-lane origin from light's forward.
 
 	// Normalize the offset we calculated into a direction vector.
 	result.Direction = normalize(hitPosOffset);
@@ -357,7 +357,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 		return;
 
 	// This is uv-point (0, 0) in our plane.
-	float3	v0			= (_ShadowFocusDistance * _LightForwardDir + _LightPosition).xyz;
+	float3	v0			= ((_ShadowFocusDistance * _LightForwardDir) + _LightPosition).xyz;
 
 	// This is the LightRay's current starting point.
 	float3	p0			= lightRay.Position;
@@ -368,7 +368,6 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	
 	// Normal vector for our plain
 	float3	N			= (-_LightForwardDir).xyz;
-
 
 	// This is the scale factor by which we multiple our lightRay's direction in order to find the offset 
 	// for the intersection point
@@ -384,7 +383,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	float	uOffset		= dot(planeCoord, lightRightwardDir.xyz);
 	float	vOffset		= dot(planeCoord, _LightUpwardDir.xyz);
 	float2	uvPrime		= float2(uOffset, vOffset);
-	uvPrime *= (1.0 / halfSize);
+	uvPrime /= halfSize;
 
 	// Check to see if we're even in the allowed texture area.
 	if (uvPrime.x < -1 || 1 < uvPrime.x)
@@ -392,10 +391,11 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	if (uvPrime.y < -1 || 1 < uvPrime.y)
 		return;
 
+	///
+	/// Convert our resulting UV coord (uvPrime) into a pixel index to add to the correct pixel.
+	///
 	float2 pix = uvPrime + 1.0;
 	pix *= (width / 2.0);
 
-	int2 pixInt = pix;
-
-	Result[pixInt.xy] += float4(lightRay.Color, 1.0);
+	Result[trunc(pix)] += float4(lightRay.Color, 1.0);
 }
