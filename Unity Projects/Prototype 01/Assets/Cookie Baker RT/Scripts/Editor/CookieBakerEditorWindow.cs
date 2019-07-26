@@ -63,6 +63,16 @@ namespace FCT.CookieBakerP01
 
 		private static			ComputeShader		s_computeShader;
 
+		/// <summary>
+		/// The max number of times we will bounce a light ray off of objects.
+		/// </summary>
+		private static			int					s_maxBounceCount			= 3;
+
+		/// <summary>
+		/// This is the focal distance from which we do all of our math for calculating if a light ray adds to the cookie-texture.
+		/// </summary>
+		private static			float				s_shadowFocusDistance		= 500.0f;
+
 		#endregion
 
 
@@ -235,6 +245,20 @@ namespace FCT.CookieBakerP01
 			EditorGUI.indentLevel--;
 
 			EditorGUILayout.Space();
+
+			EditorGUILayout.LabelField("Quality Options:");
+			EditorGUI.indentLevel++;
+
+			EditorGUILayout.BeginHorizontal();
+			guiContent = new GUIContent("Max Segment Count:", "This controls the maximum number of times a sample light ray may bounce off of items.");
+			s_maxBounceCount = EditorGUILayout.IntSlider(guiContent, s_maxBounceCount, 1, 16);
+			EditorGUILayout.EndHorizontal();
+
+			EditorGUILayout.BeginHorizontal();
+			guiContent = new GUIContent("Shadow Focus Distance:", "This is the distance at which we measure if a light sample will add to the cookie-texture.");
+			s_shadowFocusDistance = EditorGUILayout.Slider(guiContent, s_shadowFocusDistance, 1.01f, 2000.0f);
+			EditorGUILayout.EndHorizontal();
+
 			///
 			/// Get the resolution for the generated cookie.
 			/// 
@@ -243,6 +267,8 @@ namespace FCT.CookieBakerP01
 			var resOptions = s_resolutionOptions.Select(res => { return new GUIContent(res.ToString()); });
 			s_selectedCookieResolution = EditorGUILayout.Popup(guiContent, s_selectedCookieResolution, resOptions.ToArray());
 			EditorGUILayout.EndHorizontal();
+
+			EditorGUI.indentLevel--;
 
 			if (GUILayout.Button("Start Baking."))
 			{
@@ -415,9 +441,9 @@ namespace FCT.CookieBakerP01
 			vertexBuffer.SetData(vertexList.ToArray());
 			indexBuffer.SetData(indexList.ToArray());
 
-			s_computeShader.SetInt("_MaxSegments", 1);
+			s_computeShader.SetInt("_MaxSegments", s_maxBounceCount);
 			s_computeShader.SetFloat("_SpotLightAngle", s_currentLightComponent.spotAngle / 2.0f);
-			s_computeShader.SetFloat("_ShadowFocusDistance", 4.0f);
+			s_computeShader.SetFloat("_ShadowFocusDistance", s_shadowFocusDistance);
 			s_computeShader.SetTexture(0, "Result", renderTexture);
 			s_computeShader.SetVector("_LightPosition", lightCenter.Position());
 			s_computeShader.SetVector("_LightForwardDir", s_currentLightComponent.transform.forward.Direction());
