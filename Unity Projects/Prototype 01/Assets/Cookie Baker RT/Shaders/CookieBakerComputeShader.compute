@@ -59,7 +59,7 @@ LightRay CreateInitialLightRay(float2 uv, float halfSize, float4 lightRightwardD
 	// uv-position at the _ShadowFocusDistance.
 	float3 hitPosOffset = ((uv.x * halfSize) * lightRightwardDir.xyz)		// Offet to the right, of the shadow-plane origin
 						+ ((uv.y * halfSize) * _LightUpwardDir.xyz)			// Offset to the up, of the shodow-plane origin
-						+ (_ShadowFocusDistance * _LightForwardDir.xyz);	// Offset shadow-lane origin from light's forward.
+						+ (_ShadowFocusDistance * _LightForwardDir.xyz);	// Offset shadow-plane origin from light along light's forward.
 
 	// Normalize the offset we calculated into a direction vector.
 	result.Direction = normalize(hitPosOffset);
@@ -166,39 +166,54 @@ bool TriangleIntersect(LightRay lightRay, float3 vert0, float3 vert1, float3 ver
 	// Unity uses clockwise vert winding for a triangle's forward direction, and it uses a 
 	// Left-Handed-Space which is something that must be kept in mind when doing cross products. 
 	// * Now, place vert0 at the bottom-left, vert1 at the top-right, and vert2 at
-	// * the bottom-right.
+	//   the bottom-right.
 	// * Place your left-hand at vert0.
 	// * Point your index-finger (of your left-hand) to vert1.
 	// * Point your middle-finger (of your left-hand) to vert2.
 	// * Stick our your thumb. It should be pointing at your face. 
 	// You just did a rough estimate of the directions in a left-handed cross product. So, your 
 	// index-finger was edge0, which goes from vert0's position to vert1's position. Your middle-finger
-	// was edge0, which goes from vert0's position to vert2's position.
+	// was edge1, which goes from vert0's position to vert2's position.
 
 	// This is the normal vector of the triangle that's created by our verts.
 	n = cross(edge0, edge1);
 	n = normalize(n);
 
-	// This dot product is either really, really close to zero, meaning that the light travels in parallel 
-	// to the plane and will never intersect (assuming it's not on the plane). Or, this value is negative,
-	// meaning that the plain is somewhere in the oppisite direction that are light-ray is moving.
-	if (dot(n, lightRay.Direction) < EPSILON)
+	// We want the light ray to head towards the triangle surface, but we also want it to hit the front 
+	// side of the serface. If the dot-product of the surface-normal 'n' and the light's-direction are 
+	// close to zero, then the ray is traveling parallel to the surface and will never get closer or 
+	// further away. This means, that unless the ray starts on the surface, it will never touch the 
+	// surface. So, we'll just take out anything that ranges in [-EPSILON, +EPSILON]. 
+	// 
+	// Second, if the light-ray is heading to the surface from behind, then this dot product will be a 
+	// positive value. For now, we will be using closed surfaces. And, when dealing with closed surfaces, 
+	// the light-ray will never hit the back of a surface because. Because of this, we'll take out any dot
+	// product in the range of [0, +1]. Please keep in mind that all dot-products will be in the range of
+	// [-1.0, +1.0] because we are using normalized vectors.
+	//
+	// So, any dot-product that runs in the range of [-EPSILON, +1.0] will not result in a hit for our 
+	// current settings.
+	if (dot(n, lightRay.Direction) > -EPSILON)
 		return false;
 
-	// This is position (0, 0) of the plane that is crreated by our triangle.
+	// This is position (0, 0) of the plane that is created by our triangle.
 	float3 v0 = vert0;
 
 	// This is the LightRay's current starting point.
 	float3	p0 = lightRay.Position;
 
-	// This is the delta vector from our LightRay's starting point to plane's 0-point.
+	// This is the delta vector from our LightRay's starting point to plane's 0-point. If you think of the
+	// light-right as the hypotenuse of a right-triangle (not to be confused with the triangle created by 
+	// our verts) that goes from the light's point of origin to the plane, then this would be the adjacent
+	// side of the triangle.
 	float3	W = p0 - v0;
 
 	// This is the scale factor by which we multiple our lightRay's direction in order to find the offset 
-	// for the intersection point.
+	// for the intersection point. This would be the size of the hypotenuse of that other triangle we were
+	// talking about.
 	s = dot(-n, W) / dot(n, lightRay.Direction);
 
-	// This is our intersection point with the plane.
+	// This is our intersection point with the plane. "s * lightRay.Direction" was the hypotenuse.
 	float3	intersectionPoint = (s * lightRay.Direction) + p0;
 
 	/// 
@@ -295,10 +310,13 @@ RayHit Trace(LightRay lightRay)
 
 			if (theresAHit)
 			{
-				if (t < bestHit.Distance)
+				// I know that at this point, it's not possible for t to less-than-equal-to zero, but I'm debugging and 
+				// I have no idea what the bug is.
+				// -FCT
+				if (0 < t && t < bestHit.Distance)
 				{
 					bestHit.Distance	= t;
-					bestHit.Position	= lightRay.Position + (t * lightRay.Direction) + (0.0005 * n);
+					bestHit.Position	= lightRay.Position + (t * lightRay.Direction);
 					bestHit.Normal		= n;
 					bestHit.HasAHit		= true;
 				}
@@ -322,7 +340,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	float pixX = id.x + 0.5f;
 	float pixY = id.y + 0.5f;
 
-	float2 uv = float2(pixX / width, pixY / height);
+	float2 uv = float2(pixX / width, pixY / width);
 	uv *= 2.0;
 	uv -= 1.0;
 
@@ -343,9 +361,9 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 		RayHit hit = Trace(lightRay);
 		if (hit.HasAHit)
 		{
-			lightRay.Color *= 0.75f;
+			lightRay.Color *= 0.0f;
 			lightRay.Direction = hit.Normal;
-			lightRay.Position = hit.Position + (0.0005f * hit.Normal);
+			lightRay.Position = hit.Position + (0.001 * hit.Normal);
 		}
 		else
 		{
