@@ -306,7 +306,7 @@ namespace FCT.CookieBakerP01
 			///		  box around the sphere, the size of the bounding box will be the diameter length, making it a better
 			///		  parameter than radius to an API User.
 			///		  -FCT
-			Handles.color = new Color(1.0f, 0.0f, 0.0f, 0.2f);
+			Handles.color = new Color(1.0f, 0.0f, 0.0f, 0.3f);
 			Handles.SphereHandleCap(0, worldLightPos, Quaternion.identity, 2.0f * s_innerRadius, EventType.Repaint);
 
 			Handles.color = new Color(0.0f, 1.0f, 0.0f, 0.1f);

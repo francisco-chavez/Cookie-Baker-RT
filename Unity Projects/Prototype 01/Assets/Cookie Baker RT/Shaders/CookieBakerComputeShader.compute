@@ -204,8 +204,9 @@ bool TriangleIntersect(LightRay lightRay, float3 vert0, float3 vert1, float3 ver
 
 	// This is the delta vector from our LightRay's starting point to plane's 0-point. If you think of the
 	// light-right as the hypotenuse of a right-triangle (not to be confused with the triangle created by 
-	// our verts) that goes from the light's point of origin to the plane, then this would be the adjacent
-	// side of the triangle.
+	// our verts) that goes from the light's point of origin to the plane, then the dot-product of (W, n)
+	// will give you the magnitude of the vector that makes up the adjacent-side of the triangle (or the
+	// opposite of the mag).
 	float3	W = p0 - v0;
 
 	// This is the scale factor by which we multiple our lightRay's direction in order to find the offset 
@@ -299,30 +300,30 @@ RayHit Trace(LightRay lightRay)
 			float3	v1 = (mul(meshObject.LocalToWorldMatrix, v1_local)).xyz;
 			float3	v2 = (mul(meshObject.LocalToWorldMatrix, v2_local)).xyz;
 
-			float	t = 0.0;
+			float	s = 0.0;
 			float	u = -1.0;
 			float	v = -1.0;
 			//float3	P = float3(0.0, 0.0, 0.0);
 			//float3	N = float3(0.0, 0.0, 0.0);
 			float3	n = float3(0.0, 0.0, 0.0);;
 
-			bool	theresAHit = TriangleIntersect(lightRay, v0, v1, v2, t, n);
+			bool	theresAHit = TriangleIntersect(lightRay, v0, v1, v2, s, n);
 
 			if (theresAHit)
 			{
 				// I know that at this point, it's not possible for t to less-than-equal-to zero, but I'm debugging and 
 				// I have no idea what the bug is.
 				// -FCT
-				if (0 < t && t < bestHit.Distance)
+				if (0 < s && s < bestHit.Distance)
 				{
-					bestHit.Distance	= t;
-					bestHit.Position	= lightRay.Position + (t * lightRay.Direction);
+					bestHit.Distance	= s;
+					bestHit.Position	= lightRay.Position + (s * lightRay.Direction);
 					bestHit.Normal		= n;
 					bestHit.HasAHit		= true;
 				}
 			}
-		}
-	}
+		}	// End triangle check for current object
+	}	// End loop that checks all objects
 
 	return bestHit;
 }
@@ -377,8 +378,12 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	/// distance of _ShadowFocusDistance from our light-source
 	///
 
-	// If the light is pointing away from cookie-texture, then it can not add to the texture.
-	if (dot(lightRay.Direction, _LightForwardDir.xyz) <= 0.0)
+	// Normal vector for our plain
+	float3	N = (-_LightForwardDir).xyz;
+
+	// If the light-ray and the cookie texture must be pointing at each-other, because of this, they will
+	// be pointing in opposite directions resulting in a negative dot-product.
+	if (dot(lightRay.Direction, N) > -EPSILON)
 		return;
 
 	// This is uv-point (0, 0) in our plane.
@@ -390,9 +395,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
 	// This is the delta vector from our LightRay's starting point to plane's 0-point.
 	float3	W			= p0 - v0;
-	
-	// Normal vector for our plain
-	float3	N			= (-_LightForwardDir).xyz;
+
 
 	// This is the scale factor by which we multiple our lightRay's direction in order to find the offset 
 	// for the intersection point
@@ -408,7 +411,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	float	uOffset		= dot(planeCoord, lightRightwardDir.xyz);
 	float	vOffset		= dot(planeCoord, _LightUpwardDir.xyz);
 	float2	uvPrime		= float2(uOffset, vOffset);
-	uvPrime /= halfSize;
+	uvPrime /= -halfSize;
 
 	// Check to see if we're even in the allowed texture area.
 	if (uvPrime.x < -1 || 1 < uvPrime.x)
