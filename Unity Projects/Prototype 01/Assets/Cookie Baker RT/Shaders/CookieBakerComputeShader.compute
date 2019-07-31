@@ -433,5 +433,9 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	float2 pix = uvPrime + 1.0;
 	pix *= (width / 2.0);
 
-	Result[trunc(pix)] += float4(lightRay.Color / _SampleCount, 0.0);
+	float3 newColor = lightRay.Color / _SampleCount;
+	newColor += Result[trunc(pix)].xyz;
+
+
+	Result[trunc(pix)] = float4(newColor, 1.0);
 }

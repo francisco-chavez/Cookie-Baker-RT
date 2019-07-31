@@ -513,8 +513,8 @@ namespace FCT.CookieBakerP01
 										 resolution / 8,	// All of our resolution options are divisible by 8, so we don't need to worry about things like 
 										 resolution / 8,	// adding an extra thread group when you have a (resolution % 8) != 0
 										 1);				// We only need one thread group for 'Z' because having more won't simplify any of our math.
-
-				s_computeShader.SetVector(uvOffsetKey, new Vector4((float)r.NextDouble(), (float)r.NextDouble(), 0.0f, 0.0f));
+				yield return null;
+				s_computeShader.SetVector(uvOffsetKey, new Vector4(RandomU.value, RandomU.value));
 				yield return null;
 				yield return null;
 			}
