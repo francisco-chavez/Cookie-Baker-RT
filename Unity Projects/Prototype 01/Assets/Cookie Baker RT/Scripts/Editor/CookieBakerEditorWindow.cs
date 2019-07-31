@@ -214,13 +214,14 @@ namespace FCT.CookieBakerP01
 
 				switch (additionalLightData.spotLightShape)
 				{
+					// So, it turns out that the cookie for Cone and Pyramid are used in the exact same way. The only real
+					// difference is that the cone will do less lighting based on the cone shape, but the cookie (which 
+					// we're creating) is used in the exact same way.
+					// -FCT
 					case SpotLightShape.Cone:
+					case SpotLightShape.Pyramid:
 						break;
 
-					// I need to check if each of the different shapes requires different math, so for now, I'll just pick 
-					// one shape to work on. I'm picking Cone because it looks like it'll have the most realistic light 
-					// spread.
-					// -FCT
 					default:
 						GUILayout.Label("Please select a valid light source in the scene.");
 						return;
@@ -532,10 +533,12 @@ namespace FCT.CookieBakerP01
 
 			// Apply the Texture2D to the light as a cooke, then finish cleaning up.
 			s_currentLightComponent.cookie = finalResults;
-			s_bakingCoroutine	= null;		// The coroutines for MonoBehaviors have the option to manipulate them from the outside, which I have 
+			EditorUtility.SetDirty(s_currentLightComponent.gameObject);
+			s_bakingCoroutine	= null;     // The coroutines for MonoBehaviors have the option to manipulate them from the outside, which I have 
 											// made use of. With a bit of luck, those functions will be added to the EditorCoroutines at some point 
 											// in time.
 											// -FCT
+			yield return null;
 			s_currentBakeState = BakeState.SettingSelection;
 		}
 

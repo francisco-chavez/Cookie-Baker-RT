@@ -9,7 +9,8 @@ struct ObjectDatum
 	int			VerticesOffset;
 };
 
-static const float EPSILON = 1e-8;
+static const float EPSILON		= 1e-8;
+static const float DEG_TO_RAD	= 0.0174532925;
 
 int								_MaxSegments;
 float4							_LightPosition;
@@ -347,7 +348,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	uv -= 1.0;
 
 	float4	lightRightwardDir	= float4(cross(_LightUpwardDir.xyz, _LightForwardDir.xyz), 0.0);
-	float	halfSize			= _ShadowFocusDistance * tan(_SpotLightAngle);
+	float	halfSize			= _ShadowFocusDistance * tan(_SpotLightAngle * DEG_TO_RAD);
 
 	///
 	/// Create inital LightRay for our Ray-Tracing.
@@ -412,7 +413,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	float	uOffset		= dot(planeCoord, lightRightwardDir.xyz);
 	float	vOffset		= dot(planeCoord, _LightUpwardDir.xyz);
 	float2	uvPrime		= float2(uOffset, vOffset);
-	uvPrime /= -halfSize;
+	uvPrime /= halfSize;
 
 	// Check to see if we're even in the allowed texture area.
 	if (uvPrime.x < -1 || 1 < uvPrime.x)
