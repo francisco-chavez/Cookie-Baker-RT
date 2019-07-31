@@ -13,6 +13,8 @@ using UnityEditorInternal;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering.HDPipeline;
 
+using RandomU = UnityEngine.Random;
+
 
 namespace FCT.CookieBakerP01
 {
@@ -52,12 +54,14 @@ namespace FCT.CookieBakerP01
 		private static			EditorCoroutine		s_bakingCoroutine			= null;
 
 		/// <summary>
-		/// Anthing that's closer to our light source than this inner radius will not be used in our shadow generation.
+		/// Anthing that's closer to our light source than this inner radius will not be used in our shadow 
+		/// generation.
 		/// </summary>
 		private static			float				s_innerRadius				= 0.01f;
 
 		/// <summary>
-		/// Anything that's further away than this distance from our light source will not be used in our shadow generation.
+		/// Anything that's further away than this distance from our light source will not be used in our shadow 
+		/// generation.
 		/// </summary>
 		private static			float				s_outerRadius				= 0.20f;
 
@@ -69,9 +73,16 @@ namespace FCT.CookieBakerP01
 		private static			int					s_maxBounceCount			= 3;
 
 		/// <summary>
-		/// This is the focal distance from which we do all of our math for calculating if a light ray adds to the cookie-texture.
+		/// This is the focal distance from which we do all of our math for calculating if a light ray adds to 
+		/// the cookie-texture.
 		/// </summary>
-		private static			float				s_shadowFocusDistance		= 500.0f;
+		private static			float				s_shadowFocusDistance		= 50.0f;
+
+		/// <summary>
+		/// This is the number of times to sample from each pixel. More samples will result in a more realistic 
+		/// result, but increasing the sample count will also increase the run time of the bake processes.
+		/// </summary>
+		private static			int					s_sampleCount				= 10;
 
 		#endregion
 
@@ -253,6 +264,11 @@ namespace FCT.CookieBakerP01
 			EditorGUILayout.BeginHorizontal();
 			guiContent = new GUIContent("Max Segment Count:", "This controls the maximum number of times a sample light ray may bounce off of items.");
 			s_maxBounceCount = EditorGUILayout.IntSlider(guiContent, s_maxBounceCount, 1, 16);
+			EditorGUILayout.EndHorizontal();
+
+			EditorGUILayout.BeginHorizontal();
+			guiContent = new GUIContent("Sample Count:", "This controls the number of samples we take. Higher sample counts lead to better quality and longer bake times.");
+			s_sampleCount = EditorGUILayout.IntSlider(guiContent, s_sampleCount, 1, 500);
 			EditorGUILayout.EndHorizontal();
 
 			EditorGUILayout.BeginHorizontal();
@@ -443,7 +459,15 @@ namespace FCT.CookieBakerP01
 			vertexBuffer.SetData(vertexList);
 			indexBuffer.SetData(indexList);
 
+			yield return null;
 
+			// Most of the values will only get set once, so there's no point in storing hash-key value of their
+			// property names. For the few items that will be set quite a few times, storing the hash-key value
+			// will speed things up for us. It's just a tiny bit, but it will be faster.
+			int uvOffsetKey = Shader.PropertyToID("_UvOffset");
+			s_computeShader.SetVector(uvOffsetKey, new Vector4(0.5f, 0.5f, 0.0f, 0.0f));
+
+			s_computeShader.SetFloat("_SampleCount", (float) s_sampleCount);
 			s_computeShader.SetInt("_MaxSegments", s_maxBounceCount);
 			s_computeShader.SetFloat("_SpotLightAngle", s_currentLightComponent.spotAngle / 2.0f);
 			s_computeShader.SetFloat("_ShadowFocusDistance", s_shadowFocusDistance);
@@ -453,6 +477,9 @@ namespace FCT.CookieBakerP01
 			s_computeShader.SetVector("_LightUpwardDir", s_currentLightComponent.transform.up.Direction());
 			s_computeShader.SetFloat("_InnerRange", s_innerRadius);
 			s_computeShader.SetFloat("_OuterRange", s_outerRadius);
+
+			yield return null;
+
 			s_computeShader.SetBuffer(0, "_ObjectData", objectBuffer);
 			s_computeShader.SetBuffer(0, "_Vertices", vertexBuffer);
 			s_computeShader.SetBuffer(0, "_Indices", indexBuffer);
@@ -460,15 +487,26 @@ namespace FCT.CookieBakerP01
 			yield return null;
 
 
+			// I wanted to use Unity's Random class for this, but the comments said that the random floats were 
+			// [0.0, 1.0] when what I want is [0.0, 1.0). Using a random function that can generate a 1.0 is bad
+			// for our uv coordinate random sampling. That said, casting a double to a float might also give us a 
+			// 1.0 due to rounding from loss of precission.
+			// -FCT
+			System.Random r = new System.Random(0);
+
 			s_currentBakeState = BakeState.Bake;
 			yield return null;
 
+			for (int i = 0; i < s_sampleCount; i++)
+			{
+				s_computeShader.Dispatch(0,					// We only have the one kernal, so it will have an ID of 0
+										 resolution / 8,	// All of our resolution options are divisible by 8, so we don't need to worry about things like 
+										 resolution / 8,	// adding an extra thread group when you have a (resolution % 8) != 0
+										 1);				// We only need one thread group for 'Z' because having more won't simplify any of our math.
 
-			s_computeShader.Dispatch(0,					// We only have the one kernal, so it will have an ID of 0
-									 resolution / 8,	// All of our resolution options are divisible by 8, so we don't need to worry about things like 
-									 resolution / 8,	// adding an extra thread group when you have a (resolution % 8) != 0
-									 1);				// We only need one thread group for 'Z' because having more won't simplify any of our math.
-			yield return null;
+				s_computeShader.SetVector(uvOffsetKey, new Vector4((float)r.NextDouble(), (float)r.NextDouble(), 0.0f, 0.0f));
+				yield return null;
+			}
 
 			s_currentBakeState = BakeState.Finalize;
 			yield return null;
