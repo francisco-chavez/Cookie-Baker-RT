@@ -84,6 +84,8 @@ namespace FCT.CookieBakerP01
 		/// </summary>
 		private static			int					s_sampleCount				= 10;
 
+		private static			int					s_bakeProgress				= 0;
+
 		#endregion
 
 
@@ -301,7 +303,14 @@ namespace FCT.CookieBakerP01
 
 		private void DrawBakeStage()
 		{
+
+			EditorGUILayout.BeginHorizontal();
 			GUILayout.Label("The cookie is in the oven.");
+			EditorGUILayout.EndHorizontal();
+
+			EditorGUILayout.BeginHorizontal();
+			EditorGUI.ProgressBar(new Rect(3, 45, position.width - 6, 20), ((float)s_bakeProgress) / s_sampleCount, "Bake Progress");
+			EditorGUILayout.EndHorizontal();
 		}
 
 		private void DrawFinalizeStage()
@@ -499,6 +508,7 @@ namespace FCT.CookieBakerP01
 
 			for (int i = 0; i < s_sampleCount; i++)
 			{
+				s_bakeProgress = i;
 				s_computeShader.Dispatch(0,					// We only have the one kernal, so it will have an ID of 0
 										 resolution / 8,	// All of our resolution options are divisible by 8, so we don't need to worry about things like 
 										 resolution / 8,	// adding an extra thread group when you have a (resolution % 8) != 0
@@ -506,7 +516,9 @@ namespace FCT.CookieBakerP01
 
 				s_computeShader.SetVector(uvOffsetKey, new Vector4((float)r.NextDouble(), (float)r.NextDouble(), 0.0f, 0.0f));
 				yield return null;
+				yield return null;
 			}
+
 
 			s_currentBakeState = BakeState.Finalize;
 			yield return null;
