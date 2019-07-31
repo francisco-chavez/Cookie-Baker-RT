@@ -6,6 +6,7 @@ struct ObjectDatum
 	float4x4	LocalToWorldMatrix;
 	int			IndicesOffset;
 	int			IndicesCount;
+	int			VerticesOffset;
 };
 
 static const float EPSILON = 1e-8;
@@ -284,9 +285,9 @@ RayHit Trace(LightRay lightRay)
 		{
 			uint subIndex0 = j + offset;
 
-			uint index0 = _Indices[subIndex0 + 0];
-			uint index1 = _Indices[subIndex0 + 1];
-			uint index2 = _Indices[subIndex0 + 2];
+			uint index0 = _Indices[subIndex0 + 0] + meshObject.VerticesOffset;
+			uint index1 = _Indices[subIndex0 + 1] + meshObject.VerticesOffset;
+			uint index2 = _Indices[subIndex0 + 2] + meshObject.VerticesOffset;
 
 			// By setting the w component to '1.0', we enable xyz components to be transposed through matrix 
 			// multiplication. This is why positions have 'w = 1.0' and directions have 'w = 0.0'. There's more to

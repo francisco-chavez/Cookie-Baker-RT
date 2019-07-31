@@ -411,7 +411,7 @@ namespace FCT.CookieBakerP01
 			//		 index array information to pass along to the meshRefDatum. 
 			var meshObjecRefData			= new List<MeshObject>(processMeshRenderer.Count);
 			var indexList					= new List<int>();
-			var vertexList					= new List<Vector3>(processMeshRenderer.Count * 100);
+			var vertexList					= new List<Vector3>(processMeshRenderer.Count * 50);
 
 			for (int i = 0; i < processMeshRenderer.Count; i++)
 			{
@@ -423,7 +423,8 @@ namespace FCT.CookieBakerP01
 				{
 					LocalToWorldMatrix	= processMeshRenderer[i].localToWorldMatrix,
 					IndicesOffset		= indexList.Count,				// The starting index of the vert-index for this object's mesh.
-					IndicesCount		= meshTriangleIndices.Length	// The number of indices used to form all of the mesh triangles.
+					IndicesCount		= meshTriangleIndices.Length,	// The number of indices used to form all of the mesh triangles.
+					VerticesOffset		= vertexList.Count
 				};
 
 				meshObjecRefData.Add(meshRefDatum);
@@ -433,7 +434,7 @@ namespace FCT.CookieBakerP01
 
 			yield return null;
 
-			ComputeBuffer objectBuffer	= new ComputeBuffer(meshObjecRefData.Count, 72);
+			ComputeBuffer objectBuffer	= new ComputeBuffer(meshObjecRefData.Count, 76);
 			ComputeBuffer vertexBuffer	= new ComputeBuffer(vertexList.Count, 12);
 			ComputeBuffer indexBuffer	= new ComputeBuffer(indexList.Count, 4);
 
@@ -561,13 +562,14 @@ namespace FCT.CookieBakerP01
 		/// be told apart by their Local to World Matrix. As time goes on, we'll be adding more information.
 		/// </summary>
 		/// <remarks>
-		/// Size: 72 bytes
+		/// Size: 76 bytes
 		/// </remarks>
 		private struct MeshObject
 		{
 			public Matrix4x4	LocalToWorldMatrix; // 16 floats, so 64 bytes
 			public Int32		IndicesOffset;		// 4 bytes
-			public Int32		IndicesCount;		// 4 bytes
+			public Int32		IndicesCount;       // 4 bytes
+			public Int32		VerticesOffset;		// 4 bytes
 		}
 
 		#endregion
