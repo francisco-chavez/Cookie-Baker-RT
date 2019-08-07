@@ -65,8 +65,6 @@ namespace FCT.CookieBakerP02
 		/// </summary>
 		private static			float				s_outerRadius				= 0.20f;
 
-		private static			ComputeShader		s_computeShader;
-
 		/// <summary>
 		/// The max number of times we will bounce a light ray off of objects.
 		/// </summary>
@@ -148,9 +146,6 @@ namespace FCT.CookieBakerP02
 		private void OnEnable()
 		{
 			SceneView.onSceneGUIDelegate += MyOnGizmo;
-
-			if (s_computeShader == null)
-				s_computeShader = AssetDatabase.LoadAssetAtPath<ComputeShader>("Assets/Cookie Baker RT/Shaders/CookieBakerComputeShader.compute");
 		}
 
 		private void OnDisable()
@@ -444,11 +439,35 @@ namespace FCT.CookieBakerP02
 
 			yield return null;
 
+			using (var mainBakeThread = new BackgroundWorker())
+			{
+				var threadArgs = new MainBakeArgs()
+				{
+					ObjectData				= meshObjecRefData,
+					Vertices				= vertexList,
+					Indices					= indexList,
+
+					ImageResolution			= resolution,
+
+					LightSourcePosition		= lightCenter,
+					LightSourceForward		= s_currentLightComponent.transform.forward,
+					LightSourceUpward		= s_currentLightComponent.transform.up,
+					LightSourceRightward	= s_currentLightComponent.transform.right
+				};
+				mainBakeThread.DoWork += MainBakeThread_DoWork;
+				yield return null;
+				mainBakeThread.RunWorkerAsync(threadArgs);
+				s_currentBakeState = BakeState.Bake;
+				yield return null;
+
+				while (!threadArgs.Complete)
+					yield return new EditorWaitForSeconds(0.2f);
+			}
+
 
 			s_currentBakeState = BakeState.Finalize;
 
 			yield return null;
-
 
 
 			///
@@ -502,8 +521,31 @@ namespace FCT.CookieBakerP02
 			s_currentBakeState = BakeState.SettingSelection;
 		}
 
+		private void MainBakeThread_DoWork(object sender, DoWorkEventArgs e)
+		{
+			throw new NotImplementedException();
+		}
+
 
 		#region Internal Struct Definitions
+
+		private class MainBakeArgs
+		{
+			public bool				Complete				= false;
+			public int				CurrentSample			= -1;
+			public object			LockObject				= new object();
+
+			public List<MeshObject> ObjectData;
+			public List<Vector3>	Vertices;
+			public List<int>		Indices;
+
+			public float			ImageResolution;
+
+			public Vector3			LightSourcePosition;
+			public Vector3			LightSourceForward;
+			public Vector3			LightSourceUpward;
+			public Vector3			LightSourceRightward;
+		}
 
 		/// <summary>
 		/// One thing I've learned the hard way about creating tools in Unity is that a bool isn't always enough 
