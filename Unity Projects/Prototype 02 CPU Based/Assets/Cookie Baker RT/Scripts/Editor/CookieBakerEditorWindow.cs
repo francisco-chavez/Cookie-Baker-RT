@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 using Unity.EditorCoroutines;
 using Unity.EditorCoroutines.Editor;
@@ -452,7 +453,8 @@ namespace FCT.CookieBakerP02
 					LightSourcePosition		= lightCenter,
 					LightSourceForward		= s_currentLightComponent.transform.forward,
 					LightSourceUpward		= s_currentLightComponent.transform.up,
-					LightSourceRightward	= s_currentLightComponent.transform.right
+					LightSourceRightward	= s_currentLightComponent.transform.right,
+					LightSourceTheata		= Mathf.Deg2Rad * s_currentLightComponent.spotAngle / 2.0f
 				};
 				mainBakeThread.DoWork += MainBakeThread_DoWork;
 				yield return null;
@@ -523,11 +525,73 @@ namespace FCT.CookieBakerP02
 
 		private void MainBakeThread_DoWork(object sender, DoWorkEventArgs e)
 		{
-			throw new NotImplementedException();
+			var args = e.Argument as MainBakeArgs;
+
+			// Create an N by N array of Colors;
+			Color[][] result = new Color[args.ImageResolution][];
+			for (int i = 0; i < args.ImageResolution; i++)
+				result[i] = new Color[args.ImageResolution];
+
+			Vector2 pixelOffset = 0.5f * Vector2.one;
+			float halfSize = s_shadowFocusDistance * Mathf.Tan(args.LightSourceTheata);
+
+			for (int i = 0; i < s_sampleCount; i++)
+			{
+				Parallel.For(0, args.ImageResolution, pixY => 
+				{
+					Vector2 uvCoord = Vector2.zero;
+					for (int pixX = 0; pixX < args.ImageResolution; pixX++)
+					{
+						Vector2 uv = new Vector2(pixX, pixY) + pixelOffset;
+						uv /= args.ImageResolution;
+						uv *= 2.0f;
+						uv -= Vector2.one;
+
+						LightRay lightRay = CreateInitialLightRay(uv, halfSize, args);
+					}
+				});
+
+				// Select the next pixel sample offset and make sure that it ranges [0.0, 1.0). Since Unity's Random 
+				// ranges [0.0, 1.0], I'm adding a bit of code to bring the resulting into the desired range.
+				// -FCT
+				do
+				{
+					pixelOffset.x = RandomU.value;
+				} while (!(pixelOffset.x < 1.0f));
+				do
+				{
+					pixelOffset.y = RandomU.value;
+				} while (!(pixelOffset.y < 1.0f));
+			}
+
+			args.Complete = true;
+		}
+
+		private static LightRay CreateInitialLightRay(Vector2 uv, float halfSize, MainBakeArgs bakeArgs)
+		{
+			var intersectionPointOffset = ((uv.x * halfSize) * bakeArgs.LightSourceRightward)
+										+ ((uv.y * halfSize) * bakeArgs.LightSourceUpward)
+										+ (s_shadowFocusDistance * bakeArgs.LightSourceForward);
+
+			LightRay lightRay = new LightRay()
+			{
+				Color		= Color.white,
+				Origin		= bakeArgs.LightSourcePosition,
+				Direction	= intersectionPointOffset.normalized
+			};
+
+			return lightRay;
 		}
 
 
 		#region Internal Struct Definitions
+
+		private struct LightRay
+		{
+			public Vector3	Origin;
+			public Vector3	Direction;
+			public Color	Color;
+		}
 
 		private class MainBakeArgs
 		{
@@ -539,12 +603,13 @@ namespace FCT.CookieBakerP02
 			public List<Vector3>	Vertices;
 			public List<int>		Indices;
 
-			public float			ImageResolution;
+			public int				ImageResolution;
 
 			public Vector3			LightSourcePosition;
 			public Vector3			LightSourceForward;
 			public Vector3			LightSourceUpward;
 			public Vector3			LightSourceRightward;
+			public float			LightSourceTheata;
 		}
 
 		/// <summary>
