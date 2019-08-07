@@ -534,22 +534,85 @@ namespace FCT.CookieBakerP02
 
 			Vector2 pixelOffset = 0.5f * Vector2.one;
 			float halfSize = s_shadowFocusDistance * Mathf.Tan(args.LightSourceTheata);
+			float colorAdjustment = 1.0f / s_sampleCount;
 
 			for (int i = 0; i < s_sampleCount; i++)
 			{
+				s_bakeProgress = i;
+
 				Parallel.For(0, args.ImageResolution, pixY => 
 				{
 					Vector2 uvCoord = Vector2.zero;
 					for (int pixX = 0; pixX < args.ImageResolution; pixX++)
 					{
+						///
+						/// Convert pixel coordinates into UV coordinates.
+						/// 
 						Vector2 uv = new Vector2(pixX, pixY) + pixelOffset;
 						uv /= args.ImageResolution;
 						uv *= 2.0f;
 						uv -= Vector2.one;
 
+						///
+						/// Create initial lightRay based on UV coordinates and shadow plane intersection.
+						/// 
 						LightRay lightRay = CreateInitialLightRay(uv, halfSize, args);
-					}
-				});
+
+						///
+						/// Tracing Code goes here
+						/// 
+
+						///
+						/// End Tracing Code
+						///
+
+						///
+						/// Convert our lightRay into a point on the shadow plane.
+						/// 
+
+						Vector3 N = -args.LightSourceForward;
+
+						if (Vector3.Dot(lightRay.Direction, N) > -float.Epsilon)
+							continue;
+
+						Vector3 v0 = (s_shadowFocusDistance * args.LightSourceForward) + args.LightSourcePosition;
+						Vector3 p0 = args.LightSourcePosition;
+
+						Vector3 W = p0 - v0;
+
+						float s_i = Vector3.Dot(-N, W) / Vector3.Dot(N, lightRay.Direction);
+						Vector3 lightPoint = (s_i * lightRay.Direction) + p0;
+
+						///
+						/// Convert out lightPoint from a World-Space coord into a uv-coord
+						/// 
+						Vector3 planeCoord = lightPoint - v0;
+						float uOffset = Vector3.Dot(planeCoord, args.LightSourceRightward);
+						float vOffset = Vector3.Dot(planeCoord, args.LightSourceUpward);
+						Vector2 uvPrime = new Vector2(uOffset, vOffset);
+						uvPrime /= halfSize;
+
+						if (uvPrime.x < -1.0f)
+							continue;
+						if (uvPrime.y < -1.0f)
+							continue;
+						if (uvPrime.x >= +1.0f)
+							continue;
+						if (uvPrime.y >= +1.0f)
+							continue;
+
+						///
+						/// Convert our new uv coord (uvPrime) into a pixel index to add to the correct pixel.
+						///
+						Vector2 pix = uvPrime + Vector2.one;
+						pix *= (args.ImageResolution / 2.0f);
+
+						lock (args.LockObject)
+						{
+							result[pixY][pixX] += colorAdjustment * lightRay.Color;
+						}
+					}	// End PixX Loop
+				});	// End PixY Loop
 
 				// Select the next pixel sample offset and make sure that it ranges [0.0, 1.0). Since Unity's Random 
 				// ranges [0.0, 1.0], I'm adding a bit of code to bring the resulting into the desired range.
@@ -596,7 +659,6 @@ namespace FCT.CookieBakerP02
 		private class MainBakeArgs
 		{
 			public bool				Complete				= false;
-			public int				CurrentSample			= -1;
 			public object			LockObject				= new object();
 
 			public List<MeshObject> ObjectData;
