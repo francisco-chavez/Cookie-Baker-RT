@@ -347,10 +347,10 @@ namespace FCT.CookieBakerP02
 			// to see if something is within the ball park would be to check if their bounding box insersects with
 			// a bounding box that contains the outer radius. Once that has been done, we can take a closer look at
 			// what's left.
-			var meshRenders = FindObjectsOfType<MeshRenderer>();
-			var lightCenter = s_currentLightComponent.transform.position;
-			var lightBoundingBox = new Bounds(lightCenter, 2.0f * s_outerRadius * Vector3.one);
-			var intersectingBounds = new List<MeshRenderer>();
+			var meshRenders			= FindObjectsOfType<MeshRenderer>();
+			var lightCenter			= s_currentLightComponent.transform.position;
+			var lightBoundingBox	= new Bounds(lightCenter, 2.0f * s_outerRadius * Vector3.one);
+			var intersectingBounds	= new List<MeshRenderer>();
 			foreach (var meshRenderer in meshRenders)
 			{
 				var otherBounds = meshRenderer.bounds;
@@ -552,7 +552,11 @@ namespace FCT.CookieBakerP02
 			{
 				s_bakeProgress = i;
 
-				Parallel.For(0, args.ImageResolution, pixY => 
+				ParallelOptions threadingOptions = new ParallelOptions()
+				{
+					MaxDegreeOfParallelism = 7
+				};
+				Parallel.For(0, args.ImageResolution, threadingOptions, pixY => 
 				{
 					Vector2 uvCoord = Vector2.zero;
 					for (int pixX = 0; pixX < args.ImageResolution; pixX++)
@@ -571,12 +575,23 @@ namespace FCT.CookieBakerP02
 						LightRay lightRay = CreateInitialLightRay(uv, halfSize, args);
 
 						///
-						/// Tracing Code goes here
+						/// Tracing Code
 						/// 
+						for (int j = 0; j < s_maxBounceCount; j++)
+						{
+							RayHit hit = Trace(lightRay, args);
 
-						///
-						/// End Tracing Code
-						///
+							if (hit.HasAHit)
+							{
+								lightRay.Color *= 0.5f;
+								lightRay.Direction = hit.Normal;
+								lightRay.Origin = hit.Position + (0.0005f * hit.Normal);
+							}
+							else
+							{
+								j = s_maxBounceCount;
+							}
+						}
 
 						///
 						/// Convert our lightRay into a point on the shadow plane.
@@ -661,6 +676,163 @@ namespace FCT.CookieBakerP02
 			args.Complete = true;
 		}
 
+		private static RayHit Trace(LightRay lightRay, MainBakeArgs bakeArgs)
+		{
+			RayHit bestHit = BlankHit();
+
+			for (int i = 0; i < bakeArgs.ObjectData.Count; i++)
+			{
+				var objectDatum = bakeArgs.ObjectData[i];
+
+				for (int j = 0; j < objectDatum.IndicesCount; j += 3)
+				{
+					int subIndex0 = j + objectDatum.IndicesOffset;
+
+					int index0 = bakeArgs.Indices[subIndex0 + 0] + objectDatum.VerticesOffset;
+					int index1 = bakeArgs.Indices[subIndex0 + 1] + objectDatum.VerticesOffset;
+					int index2 = bakeArgs.Indices[subIndex0 + 2] + objectDatum.VerticesOffset;
+
+					// Going from an object's Local-Space and into World-Space requires matrix-multiplication. For this to
+					// work, we need to Vector4s with a 'w' component that contains a value of 1.0. This value of 1.0
+					// allows the matrix multiplication to perfrom a transpose that will carry over into the result. It's
+					// one of the reasons for using "w = 1.0" for positions and "w = 0.0" for directions.
+					// -FCT
+					Vector4 v0_local = bakeArgs.Vertices[index0].Position();
+					Vector4 v1_local = bakeArgs.Vertices[index1].Position();
+					Vector4 v2_local = bakeArgs.Vertices[index2].Position();
+
+					Vector3 v0	= objectDatum.LocalToWorldMatrix * v0_local;
+					Vector3 v1	= objectDatum.LocalToWorldMatrix * v1_local;
+					Vector3 v2	= objectDatum.LocalToWorldMatrix * v2_local;
+
+					float	s	= float.MaxValue;
+					Vector3 n	= Vector3.zero;
+
+					bool theresAHit = TriangleIntersect(lightRay, v0, v1, v2, bakeArgs.LightSourcePosition, out s, out n);
+
+					if (theresAHit)
+					{
+						if (s < bestHit.Distance)
+						{
+							bestHit.Distance = s;
+							bestHit.Position = lightRay.Origin + (s * lightRay.Direction);
+							bestHit.Normal = n;
+							bestHit.HasAHit = true;
+						}
+					}
+				}	// End loop that checks all triangles for current object
+			}	// End loop that checks all objects
+
+			return bestHit;
+		}
+
+		private static bool TriangleIntersect(LightRay lightRay, Vector3 v0, Vector3 v1, Vector3 v2, Vector3 lightSourcePos, out float s, out Vector3 n)
+		{
+			s = float.MaxValue;
+
+			Vector3 edge0 = v1 - v0;
+			Vector3 edge1 = v2 - v0;
+
+			// Unity uses clockwise vert winding for a triangle's forward direction, and it uses a 
+			// Left-Handed-Space which is something that must be kept in mind when doing cross products. 
+			// * Now, place vert0 at the bottom-left, vert1 at the top-right, and vert2 at
+			//   the bottom-right.
+			// * Place your left-hand at vert0.
+			// * Point your index-finger (of your left-hand) to vert1.
+			// * Point your middle-finger (of your left-hand) to vert2.
+			// * Stick our your thumb. It should be pointing at your face. 
+			// You just did a rough estimate of the directions in a left-handed cross product. So, your 
+			// index-finger was edge0, which goes from vert0's position to vert1's position. Your middle-finger
+			// was edge1, which goes from vert0's position to vert2's position.
+
+			// This is the normal vector of the triangle that's created by our verts.
+			n = Vector3.Cross(edge0, edge1);
+			n = Vector3.Normalize(n);
+
+			// We want the light ray to head towards the triangle surface, but we also want it to hit the front 
+			// side of the serface. If the dot-product of the surface-normal 'n' and the light's-direction are 
+			// close to zero, then the ray is traveling parallel to the surface and will never get closer or 
+			// further away. This means, that unless the ray starts on the surface, it will never touch the 
+			// surface. So, we'll just take out anything that ranges in [-EPSILON, +EPSILON]. 
+			// 
+			// Second, if the light-ray is heading to the surface from behind, then this dot product will be a 
+			// positive value. For now, we will be using closed surfaces. And, when dealing with closed surfaces, 
+			// the light-ray will never hit the back of a surface because. Because of this, we'll take out any dot
+			// product in the range of [0, +1]. Please keep in mind that all dot-products will be in the range of
+			// [-1.0, +1.0] because we are using normalized vectors.
+			//
+			// So, any dot-product that runs in the range of [-EPSILON, +1.0] will not result in a hit for our 
+			// current settings.
+			if (Vector3.Dot(n, lightRay.Direction) > -float.Epsilon)
+				return false;
+
+			// This is the LightRay's current starting point.
+			Vector3 p0 = lightRay.Origin;
+
+			// This is the delta vector from our LightRay's starting point to plane's 0-point. If you think of the
+			// light-right as the hypotenuse of a right-triangle (not to be confused with the triangle created by 
+			// our verts) that goes from the light's point of origin to the plane, then the dot-product of (W, n)
+			// will give you the magnitude of the vector that makes up the adjacent-side of the triangle (or the
+			// opposite of the mag).
+			Vector3 W = p0 - v0;
+
+			// This is the scale factor by which we multiple our lightRay's direction in order to find the offset 
+			// for the intersection point. This would be the size of the hypotenuse of that other triangle we were
+			// talking about.
+			s = Vector3.Dot(-n, W) / Vector3.Dot(n, lightRay.Direction);
+
+			// This is our intersection point with the plane. "s * lightRay.Direction" was the hypotenuse.
+			Vector3 intersectionPoint = (s * lightRay.Direction) + p0;
+
+			/// 
+			/// Check to see if we are within the actionable range. If we are outside of the actionable range, then 
+			/// it doesn't matter if we intersected a triangle, otherwise, what was the point of giving the user the
+			/// option of selecting an actionable range.
+			///
+			Vector3 deltaFromLightSource = intersectionPoint - lightSourcePos;
+			float distFromLight2 = Vector3.Dot(deltaFromLightSource, deltaFromLightSource);
+			if (distFromLight2 < (s_innerRadius * s_innerRadius))
+				return false;	// This intersection point was within the exclusion zone.
+			if (distFromLight2 > (s_outerRadius * s_outerRadius))
+				return false;	// This intersection point was outside of the inclusion zone.
+
+			/// 
+			/// We now know where the light will hit the triangle's plane, but we don't know if it will hit the 
+			/// triangle itself. That's the next thing we need to check.
+			/// -FCT
+			///
+
+			// The cross product of edge0 and n, gives me a vector that points away from the direction that's 
+			// inside the triangle from edge0. Since this vector is in the wrong direction, than any point away
+			// from a point on edge0 (like vert0), should create a non-positive value when we take its dot product
+			// with vector 'c'. And, if that value isn't non-positive (0 is OK), then it's outside of the triangle.
+			// -FCT
+			Vector3 c = Vector3.Cross(edge0, n);
+			Vector3 delta = intersectionPoint - v0;
+			if (Vector3.Dot(delta, c) > 0)
+				return false;
+
+			// 
+			// Before, the cross product gave us a vector that was pointing away from the insdie of the triangle.
+			// But, before, we were using an edge that was following the clock-wise direction that creates the 
+			// forward (front-facing) direction of our triangle. 'edge1' doesn't follow the clock-wise direction,
+			// and because of this, it gave us a vector that points to the inside of the triangle. Since our 
+			// directional vector now points to the inside of the triangle, now it's the negative values created by
+			// our dot-product that indicate a point outside the triangle.
+			// -FCT
+			c = Vector3.Cross(edge1, n);
+			if (Vector3.Dot(delta, c) < 0)
+				return false;
+
+			// This one follows a clock-wise direction, so it'll be like edge0.
+			c = Vector3.Cross((v2 - v1), n);
+			delta = intersectionPoint - v1;		// We want our reference point to be on the edge we used to create 'c'.
+			if (Vector3.Dot(delta, c) > 0)
+				return false;
+
+			return true;
+		}
+
 		private static LightRay CreateInitialLightRay(Vector2 uv, float halfSize, MainBakeArgs bakeArgs)
 		{
 			var intersectionPointOffset = ((uv.x * halfSize) * bakeArgs.LightSourceRightward)
@@ -677,6 +849,21 @@ namespace FCT.CookieBakerP02
 			return lightRay;
 		}
 
+		/// <summary>
+		/// Because a certain company doesn't trust software-developers to be able to create a default 
+		/// constructor for a struct.
+		/// </summary>
+		private static RayHit BlankHit()
+		{
+			var hit = new RayHit()
+			{
+				Distance	= float.MaxValue,
+				HasAHit		= false,
+				Normal		= Vector3.zero,
+				Position	= Vector3.zero
+			};
+			return hit;
+		}
 
 		#region Internal Struct Definitions
 
@@ -685,6 +872,14 @@ namespace FCT.CookieBakerP02
 			public Vector3	Origin;
 			public Vector3	Direction;
 			public Color	Color;
+		}
+
+		private struct RayHit
+		{
+			public Vector3	Position;
+			public float	Distance;
+			public Vector3	Normal;
+			public bool		HasAHit;
 		}
 
 		private class MainBakeArgs
