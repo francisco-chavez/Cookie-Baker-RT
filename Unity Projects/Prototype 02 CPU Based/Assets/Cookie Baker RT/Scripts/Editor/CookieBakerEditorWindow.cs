@@ -14,7 +14,7 @@ using UnityEditorInternal;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering.HDPipeline;
 
-using RandomU = UnityEngine.Random;
+using RandomS = System.Random;
 
 
 namespace FCT.CookieBakerP02
@@ -440,22 +440,24 @@ namespace FCT.CookieBakerP02
 
 			yield return null;
 
+			var threadArgs = new MainBakeArgs()
+			{
+				ObjectData				= meshObjecRefData,
+				Vertices				= vertexList,
+				Indices					= indexList,
+
+				ImageResolution			= resolution,
+
+				LightSourcePosition		= lightCenter,
+				LightSourceForward		= s_currentLightComponent.transform.forward,
+				LightSourceUpward		= s_currentLightComponent.transform.up,
+				LightSourceRightward	= s_currentLightComponent.transform.right,
+				LightSourceTheata		= Mathf.Deg2Rad * s_currentLightComponent.spotAngle / 2.0f
+			};
+
 			using (var mainBakeThread = new BackgroundWorker())
 			{
-				var threadArgs = new MainBakeArgs()
-				{
-					ObjectData				= meshObjecRefData,
-					Vertices				= vertexList,
-					Indices					= indexList,
 
-					ImageResolution			= resolution,
-
-					LightSourcePosition		= lightCenter,
-					LightSourceForward		= s_currentLightComponent.transform.forward,
-					LightSourceUpward		= s_currentLightComponent.transform.up,
-					LightSourceRightward	= s_currentLightComponent.transform.right,
-					LightSourceTheata		= Mathf.Deg2Rad * s_currentLightComponent.spotAngle / 2.0f
-				};
 				mainBakeThread.DoWork += MainBakeThread_DoWork;
 				yield return null;
 				mainBakeThread.RunWorkerAsync(threadArgs);
@@ -488,6 +490,8 @@ namespace FCT.CookieBakerP02
 
 			yield return null;
 
+			finalResults.SetPixels(threadArgs.Result);
+			yield return null;
 
 
 			// Check for the location where we will be saving the Texture2D. If that location doesn't exist, then 
@@ -527,15 +531,23 @@ namespace FCT.CookieBakerP02
 		{
 			var args = e.Argument as MainBakeArgs;
 
+			Vector2		pixelOffset		= 0.5f * Vector2.one;
+			float		halfSize		= s_shadowFocusDistance * Mathf.Tan(args.LightSourceTheata);
+			float		colorAdjustment = 1.0f / s_sampleCount;
+
+			RandomS		random			= new RandomS(0);
+
 			// Create an N by N array of Colors;
-			Color[][] result = new Color[args.ImageResolution][];
+			Color[][]	result			= new Color[args.ImageResolution][];
 			for (int i = 0; i < args.ImageResolution; i++)
 				result[i] = new Color[args.ImageResolution];
 
-			Vector2 pixelOffset = 0.5f * Vector2.one;
-			float halfSize = s_shadowFocusDistance * Mathf.Tan(args.LightSourceTheata);
-			float colorAdjustment = 1.0f / s_sampleCount;
 
+			// The way I leared it, you want the outer most loop to be the threaded loop in order to decrease the
+			// performance loss from starting and stopping theads. Yet, using the middle loop will already provide
+			// us with quite a bit of work per thread and splitting it up by sample isn't a bad way to tack our 
+			// progress.
+			// -FCT
 			for (int i = 0; i < s_sampleCount; i++)
 			{
 				s_bakeProgress = i;
@@ -607,26 +619,45 @@ namespace FCT.CookieBakerP02
 						Vector2 pix = uvPrime + Vector2.one;
 						pix *= (args.ImageResolution / 2.0f);
 
-						lock (args.LockObject)
+						lock (result[pixY])
 						{
 							result[pixY][pixX] += colorAdjustment * lightRay.Color;
 						}
 					}	// End PixX Loop
-				});	// End PixY Loop
+				}); // End PixY Loop
 
-				// Select the next pixel sample offset and make sure that it ranges [0.0, 1.0). Since Unity's Random 
-				// ranges [0.0, 1.0], I'm adding a bit of code to bring the resulting into the desired range.
+
+				// I tried using Unity's Random, but it turns out that even Unity's Random is locked to the main 
+				// thread. Maybe it would work if I were to use the job system to thread this, but after the failure of
+				// dispatching a Compute Shader from a single job, I'm not sure it would be worth the effort.
+				//
+				// Select the next pixel sample offset and make sure that it ranges [0.0, 1.0). While System.Random's
+				// method for generating random doubles claims to be in the range that I want, I am also down-casting
+				// to a float. I don't know if it's possible for a double to round up to a one when down-casting, but
+				// I'm not taking that chance. So, if we get a one in the pixel offset, we'll try again.
 				// -FCT
 				do
 				{
-					pixelOffset.x = RandomU.value;
+					pixelOffset.x = (float) random.NextDouble();
 				} while (!(pixelOffset.x < 1.0f));
 				do
 				{
-					pixelOffset.y = RandomU.value;
+					pixelOffset.y = (float) random.NextDouble();
 				} while (!(pixelOffset.y < 1.0f));
 			}
 
+
+			var finalResult = new Color[args.ImageResolution * args.ImageResolution];
+			Parallel.For(0, args.ImageResolution, y =>
+			{
+				int rowOffset = y * args.ImageResolution;
+				for (int x = 0; x < args.ImageResolution; x++)
+					finalResult[rowOffset + x] = result[y][x];
+
+				result[y] = null;
+			});
+
+			args.Result = finalResult;
 			args.Complete = true;
 		}
 
@@ -660,6 +691,7 @@ namespace FCT.CookieBakerP02
 		{
 			public bool				Complete				= false;
 			public object			LockObject				= new object();
+			public Color[]			Result;
 
 			public List<MeshObject> ObjectData;
 			public List<Vector3>	Vertices;
