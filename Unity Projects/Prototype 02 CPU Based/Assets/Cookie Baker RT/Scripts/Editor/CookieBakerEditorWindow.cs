@@ -47,7 +47,7 @@ namespace FCT.CookieBakerP02
 		/// <summary>
 		/// This is the indix of the resolution option that will be used to create the final texture.
 		/// </summary>
-		private static			int					s_selectedCookieResolution	= 4;
+		private static			int					s_selectedCookieResolution	= 3;
 
 		/// <summary>
 		/// This is a reference to the coroutine that will manage the bake processes.
@@ -349,7 +349,7 @@ namespace FCT.CookieBakerP02
 			// what's left.
 			var meshRenders			= FindObjectsOfType<MeshRenderer>();
 			var lightCenter			= s_currentLightComponent.transform.position;
-			var lightBoundingBox	= new Bounds(lightCenter, 2.0f * s_outerRadius * Vector3.one);
+			var lightBoundingBox	= new UnityEngine.Bounds(lightCenter, 2.0f * s_outerRadius * Vector3.one);
 			var intersectingBounds	= new List<MeshRenderer>();
 			foreach (var meshRenderer in meshRenders)
 			{
@@ -430,7 +430,8 @@ namespace FCT.CookieBakerP02
 					LocalToWorldMatrix	= processMeshRenderer[i].localToWorldMatrix,
 					IndicesOffset		= indexList.Count,				// The starting index of the vert-index for this object's mesh.
 					IndicesCount		= meshTriangleIndices.Length,	// The number of indices used to form all of the mesh triangles.
-					VerticesOffset		= vertexList.Count
+					VerticesOffset		= vertexList.Count,
+					Bounds				= new Bounds(processMeshRenderer[i].bounds)
 				};
 
 				meshObjecRefData.Add(meshRefDatum);
@@ -684,6 +685,9 @@ namespace FCT.CookieBakerP02
 			{
 				var objectDatum = bakeArgs.ObjectData[i];
 
+				if (!objectDatum.Bounds.IntersectsLightRay(lightRay))
+					continue;
+
 				for (int j = 0; j < objectDatum.IndicesCount; j += 3)
 				{
 					int subIndex0 = j + objectDatum.IndicesOffset;
@@ -867,13 +871,6 @@ namespace FCT.CookieBakerP02
 
 		#region Internal Struct Definitions
 
-		private struct LightRay
-		{
-			public Vector3	Origin;
-			public Vector3	Direction;
-			public Color	Color;
-		}
-
 		private struct RayHit
 		{
 			public Vector3	Position;
@@ -921,14 +918,15 @@ namespace FCT.CookieBakerP02
 		/// be told apart by their Local to World Matrix. As time goes on, we'll be adding more information.
 		/// </summary>
 		/// <remarks>
-		/// Size: 76 bytes
+		/// Size: 102 bytes
 		/// </remarks>
 		private struct MeshObject
 		{
-			public Matrix4x4	LocalToWorldMatrix; // 16 floats, so 64 bytes
-			public Int32		IndicesOffset;		// 4 bytes
-			public Int32		IndicesCount;       // 4 bytes
-			public Int32		VerticesOffset;		// 4 bytes
+			public Matrix4x4				LocalToWorldMatrix; // 16 floats, so 64 bytes
+			public Int32					IndicesOffset;		// 4 bytes
+			public Int32					IndicesCount;       // 4 bytes
+			public Int32					VerticesOffset;     // 4 bytes
+			public CookieBakerP02.Bounds	Bounds;				// 9 floats, so 36 bytes
 		}
 
 		#endregion
