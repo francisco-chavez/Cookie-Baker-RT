@@ -21,8 +21,8 @@ namespace FCT.CookieBakerP02
 		public Bounds(UnityEngine.Bounds unityBounds)
 		{
 			Center	= unityBounds.center;
-			Min		= unityBounds.min;
-			Max		= unityBounds.max;
+			Min		= unityBounds.min - (0.005f * Vector3.one);
+			Max		= unityBounds.max + (0.005f * Vector3.one);
 		}
 
 

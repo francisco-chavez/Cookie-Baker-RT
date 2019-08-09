@@ -539,10 +539,19 @@ namespace FCT.CookieBakerP02
 			RandomS		random			= new RandomS(0);
 
 			// Create an N by N array of Colors;
-			Color[][]	result			= new Color[args.ImageResolution][];
+			Vector3[][]	result			= new Vector3[args.ImageResolution][];
 			for (int i = 0; i < args.ImageResolution; i++)
-				result[i] = new Color[args.ImageResolution];
+				result[i] = new Vector3[args.ImageResolution];
 
+
+			ParallelOptions threadingOptionsOuterLoop = new ParallelOptions()
+			{
+				MaxDegreeOfParallelism = 3
+			};
+			ParallelOptions theadingOptionsInnerLoop = new ParallelOptions()
+			{
+				MaxDegreeOfParallelism = 3
+			};
 
 			// The way I leared it, you want the outer most loop to be the threaded loop in order to decrease the
 			// performance loss from starting and stopping theads. Yet, using the middle loop will already provide
@@ -553,14 +562,18 @@ namespace FCT.CookieBakerP02
 			{
 				s_bakeProgress = i;
 
-				ParallelOptions threadingOptions = new ParallelOptions()
+
+				// Note: Normally, you don't do something like replace "Vector2.one" with "new Vector2(1.0f, 1.0f)" 
+				//		 until after you do performance testing and look at the metrics. Yet, I know for a fact that
+				//		 "VectorN.one" has less performance than just doing "new VectorN(1.0f,..., 1.0f)" because it
+				//		 it does an additional call stack alloction than calling the constructor directly. In the other
+				//		 code that I've writen for this project, I have been using VectorN.one, but inside the loop
+				//		 code that gets called hundreds of thousands of times and takes forever to run, I figured I 
+				//		 might as well do that know.
+				//		 -FCT
+				Parallel.For(0, args.ImageResolution, threadingOptionsOuterLoop, pixY => 
 				{
-					MaxDegreeOfParallelism = 7
-				};
-				Parallel.For(0, args.ImageResolution, threadingOptions, pixY => 
-				{
-					Vector2 uvCoord = Vector2.zero;
-					for (int pixX = 0; pixX < args.ImageResolution; pixX++)
+					Parallel.For(0, args.ImageResolution, theadingOptionsInnerLoop, pixX =>
 					{
 						///
 						/// Convert pixel coordinates into UV coordinates.
@@ -568,7 +581,7 @@ namespace FCT.CookieBakerP02
 						Vector2 uv = new Vector2(pixX, pixY) + pixelOffset;
 						uv /= args.ImageResolution;
 						uv *= 2.0f;
-						uv -= Vector2.one;
+						uv -= new Vector2(1.0f, 1.0f);
 
 						///
 						/// Create initial lightRay based on UV coordinates and shadow plane intersection.
@@ -584,9 +597,9 @@ namespace FCT.CookieBakerP02
 
 							if (hit.HasAHit)
 							{
-								lightRay.Color *= 0.5f;
-								lightRay.Direction = hit.Normal;
-								lightRay.Origin = hit.Position + (0.0005f * hit.Normal);
+								lightRay.Color		*= 0.5f;
+								lightRay.Direction	= hit.Normal;
+								lightRay.Origin		= hit.Position + (0.0005f * hit.Normal);
 							}
 							else
 							{
@@ -599,47 +612,38 @@ namespace FCT.CookieBakerP02
 						/// 
 
 						Vector3 N = -args.LightSourceForward;
+						float dot_N_LightRayDir = Vector3.Dot(N, lightRay.Direction);
+						if (dot_N_LightRayDir > -float.Epsilon)
+							return;
 
-						if (Vector3.Dot(lightRay.Direction, N) > -float.Epsilon)
-							continue;
+						Vector3 v0			= (s_shadowFocusDistance * args.LightSourceForward) + args.LightSourcePosition;
+						Vector3 p0			= args.LightSourcePosition;
 
-						Vector3 v0 = (s_shadowFocusDistance * args.LightSourceForward) + args.LightSourcePosition;
-						Vector3 p0 = args.LightSourcePosition;
-
-						Vector3 W = p0 - v0;
-
-						float s_i = Vector3.Dot(-N, W) / Vector3.Dot(N, lightRay.Direction);
-						Vector3 lightPoint = (s_i * lightRay.Direction) + p0;
+						float	s_i			= Vector3.Dot(-N, p0 - v0) / dot_N_LightRayDir;
+						Vector3 lightPoint	= (s_i * lightRay.Direction) + p0;
 
 						///
 						/// Convert out lightPoint from a World-Space coord into a uv-coord
 						/// 
-						Vector3 planeCoord = lightPoint - v0;
-						float uOffset = Vector3.Dot(planeCoord, args.LightSourceRightward);
-						float vOffset = Vector3.Dot(planeCoord, args.LightSourceUpward);
-						Vector2 uvPrime = new Vector2(uOffset, vOffset);
-						uvPrime /= halfSize;
+						Vector3 planeCoord	= lightPoint - v0;
+						float	uOffset		= Vector3.Dot(planeCoord, args.LightSourceRightward);
+						float	vOffset		= Vector3.Dot(planeCoord, args.LightSourceUpward);
+						Vector2 uvPrime		= (new Vector2(uOffset, vOffset)) / halfSize;
 
-						if (uvPrime.x < -1.0f)
-							continue;
-						if (uvPrime.y < -1.0f)
-							continue;
-						if (uvPrime.x >= +1.0f)
-							continue;
-						if (uvPrime.y >= +1.0f)
-							continue;
+						if (uvPrime.x < -1.0f || +1.0f <= uvPrime.x)
+							return;
+						if (uvPrime.y < -1.0f || +1.0f <= uvPrime.y)
+							return;
 
 						///
 						/// Convert our new uv coord (uvPrime) into a pixel index to add to the correct pixel.
 						///
-						Vector2 pix = uvPrime + Vector2.one;
-						pix *= (args.ImageResolution / 2.0f);
+						Vector2 pixPrime = uvPrime + new Vector2(1.0f, 1.0f);
+						pixPrime *= (args.ImageResolution / 2.0f);
 
-						lock (result[pixY])
-						{
-							result[pixY][pixX] += colorAdjustment * lightRay.Color;
-						}
-					}	// End PixX Loop
+						result[(int) pixPrime.y][(int) pixPrime.x] += lightRay.Color;
+
+					});	// End PixX Loop
 				}); // End PixY Loop
 
 
@@ -668,7 +672,10 @@ namespace FCT.CookieBakerP02
 			{
 				int rowOffset = y * args.ImageResolution;
 				for (int x = 0; x < args.ImageResolution; x++)
-					finalResult[rowOffset + x] = result[y][x];
+				{
+					var colorValues = colorAdjustment * result[y][x];
+					finalResult[rowOffset + x] = new Color(colorValues.x, colorValues.y, colorValues.z, 1.0f);
+				}
 
 				result[y] = null;
 			});
@@ -692,36 +699,28 @@ namespace FCT.CookieBakerP02
 				{
 					int subIndex0 = j + objectDatum.IndicesOffset;
 
-					int index0 = bakeArgs.Indices[subIndex0 + 0] + objectDatum.VerticesOffset;
-					int index1 = bakeArgs.Indices[subIndex0 + 1] + objectDatum.VerticesOffset;
-					int index2 = bakeArgs.Indices[subIndex0 + 2] + objectDatum.VerticesOffset;
-
 					// Going from an object's Local-Space and into World-Space requires matrix-multiplication. For this to
 					// work, we need to Vector4s with a 'w' component that contains a value of 1.0. This value of 1.0
 					// allows the matrix multiplication to perfrom a transpose that will carry over into the result. It's
 					// one of the reasons for using "w = 1.0" for positions and "w = 0.0" for directions.
 					// -FCT
-					Vector4 v0_local = bakeArgs.Vertices[index0].Position();
-					Vector4 v1_local = bakeArgs.Vertices[index1].Position();
-					Vector4 v2_local = bakeArgs.Vertices[index2].Position();
+					Vector3 v0			= objectDatum.LocalToWorldMatrix * bakeArgs.Vertices[bakeArgs.Indices[subIndex0    ] + objectDatum.VerticesOffset].Position();
+					Vector3 v1			= objectDatum.LocalToWorldMatrix * bakeArgs.Vertices[bakeArgs.Indices[subIndex0 + 1] + objectDatum.VerticesOffset].Position();
+					Vector3 v2			= objectDatum.LocalToWorldMatrix * bakeArgs.Vertices[bakeArgs.Indices[subIndex0 + 2] + objectDatum.VerticesOffset].Position();
 
-					Vector3 v0	= objectDatum.LocalToWorldMatrix * v0_local;
-					Vector3 v1	= objectDatum.LocalToWorldMatrix * v1_local;
-					Vector3 v2	= objectDatum.LocalToWorldMatrix * v2_local;
+					float	s			= float.MaxValue;
+					Vector3 n			= new Vector3(0.0f, 0.0f, 0.0f);
 
-					float	s	= float.MaxValue;
-					Vector3 n	= Vector3.zero;
-
-					bool theresAHit = TriangleIntersect(lightRay, v0, v1, v2, bakeArgs.LightSourcePosition, out s, out n);
+					bool	theresAHit	= TriangleIntersect(lightRay, v0, v1, v2, bakeArgs.LightSourcePosition, out s, out n);
 
 					if (theresAHit)
 					{
 						if (s < bestHit.Distance)
 						{
-							bestHit.Distance = s;
-							bestHit.Position = lightRay.Origin + (s * lightRay.Direction);
-							bestHit.Normal = n;
-							bestHit.HasAHit = true;
+							bestHit.Distance	= s;
+							bestHit.Position	= lightRay.Origin + (s * lightRay.Direction);
+							bestHit.Normal		= n;
+							bestHit.HasAHit		= true;
 						}
 					}
 				}	// End loop that checks all triangles for current object
@@ -767,23 +766,26 @@ namespace FCT.CookieBakerP02
 			//
 			// So, any dot-product that runs in the range of [-EPSILON, +1.0] will not result in a hit for our 
 			// current settings.
-			if (Vector3.Dot(n, lightRay.Direction) > -float.Epsilon)
+			float nDotLightRayDir = Vector3.Dot(n, lightRay.Direction);
+			if (nDotLightRayDir > -float.Epsilon)
 				return false;
 
 			// This is the LightRay's current starting point.
 			Vector3 p0 = lightRay.Origin;
 
-			// This is the delta vector from our LightRay's starting point to plane's 0-point. If you think of the
-			// light-right as the hypotenuse of a right-triangle (not to be confused with the triangle created by 
-			// our verts) that goes from the light's point of origin to the plane, then the dot-product of (W, n)
-			// will give you the magnitude of the vector that makes up the adjacent-side of the triangle (or the
-			// opposite of the mag).
-			Vector3 W = p0 - v0;
-
+			// If the point of origin of our light-ray is one point in a second triangle, and the point at which it
+			// hits the plane created by our verts is another point in the triangle. Then the point on the plane
+			// that is nearest to the point of origin is the third point of our second triangle. 's' would be the 
+			// length of the hypotenuse of our second triangle. The theta for our second triangle would be at the
+			// corner marked by our point of origin. We can find theta with the dot product of our normal and the
+			// light ray direction. We can find the length of the adjacent side with the dot product of the normal
+			// and the difference between the point of origin and any point on the plain. By combining the length
+			// of our adjacent side and theta, we can find the length of the hypotenuse.
+			//
 			// This is the scale factor by which we multiple our lightRay's direction in order to find the offset 
 			// for the intersection point. This would be the size of the hypotenuse of that other triangle we were
 			// talking about.
-			s = Vector3.Dot(-n, W) / Vector3.Dot(n, lightRay.Direction);
+			s = Vector3.Dot(-n, p0 - v0) / nDotLightRayDir;
 
 			// This is our intersection point with the plane. "s * lightRay.Direction" was the hypotenuse.
 			Vector3 intersectionPoint = (s * lightRay.Direction) + p0;
@@ -845,7 +847,7 @@ namespace FCT.CookieBakerP02
 
 			LightRay lightRay = new LightRay()
 			{
-				Color		= Color.white,
+				Color		= new Vector3(1.0f, 1.0f, 1.0f),
 				Origin		= bakeArgs.LightSourcePosition,
 				Direction	= intersectionPointOffset.normalized
 			};
@@ -863,11 +865,12 @@ namespace FCT.CookieBakerP02
 			{
 				Distance	= float.MaxValue,
 				HasAHit		= false,
-				Normal		= Vector3.zero,
-				Position	= Vector3.zero
+				Normal		= new Vector3(),
+				Position	= new Vector3()
 			};
 			return hit;
 		}
+
 
 		#region Internal Struct Definitions
 

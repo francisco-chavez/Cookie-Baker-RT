@@ -12,8 +12,8 @@ namespace FCT.CookieBakerP02
 {
 	public struct LightRay
 	{
-		public Vector3	Origin;
-		public Color	Color;
+		public Vector3 Origin;
+		public Vector3 Color;
 		public Vector3 Direction
 		{
 			get { return _direction; }
