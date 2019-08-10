@@ -726,6 +726,9 @@ namespace FCT.CookieBakerP02
 				}	// End loop that checks all triangles for current object
 			}	// End loop that checks all objects
 
+			if (bestHit.HasAHit)
+				bestHit.Normal = bestHit.Normal.normalized;
+
 			return bestHit;
 		}
 
@@ -750,7 +753,7 @@ namespace FCT.CookieBakerP02
 
 			// This is the normal vector of the triangle that's created by our verts.
 			n = Vector3.Cross(edge0, edge1);
-			n = Vector3.Normalize(n);
+			//n = Vector3.Normalize(n);
 
 			// We want the light ray to head towards the triangle surface, but we also want it to hit the front 
 			// side of the serface. If the dot-product of the surface-normal 'n' and the light's-direction are 
