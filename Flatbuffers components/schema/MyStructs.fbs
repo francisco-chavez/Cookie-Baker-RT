@@ -1,0 +1,46 @@
+
+namespace FCT.CookieBakerRT.IPC_DataFormat;
+
+struct Vec3 {
+	x:float;
+	y:float;
+	z:float;
+}
+
+struct Vec4 {
+	x:float;
+	y:float;
+	z:float;
+	w:float;
+}
+
+struct AABB_Bounds {
+	Center:Vec3;
+	Extent:Vec3;
+}
+
+struct Matrix4x4 {
+	m_11:float;
+	m_12:float;
+	m_13:float;
+	m_14:float;	
+	m_21:float;
+	m_22:float;
+	m_23:float;
+	m_24:float;	
+	m_31:float;
+	m_32:float;
+	m_33:float;
+	m_34:float;	
+	m_41:float;
+	m_42:float;
+	m_43:float;
+	m_44:float;
+}
+
+struct MeshObject {
+	LocalToWorldMatrix:Matrix4x4;
+	IndicesOffset:int;
+	IndicesCount:int;
+	VerticesOffset:int;
+}
