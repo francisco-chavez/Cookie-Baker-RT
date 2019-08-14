@@ -1,0 +1,27 @@
+
+namespace FCT.CookieBakerRT.IPC_DataFormat;
+
+include "MyStructs.fbs"
+
+table WorkloadRequest {
+
+	WorklodID:int;
+	ReturnSocket:string;
+	
+	SampleCount:int;
+	MinRange:float;
+	MaxRange:float;
+	ShadowFocusPlane:float;
+	Resolution:int;
+	BounceCount:int;
+	
+	LightSourcePosition:Vec3;
+	LightSourceForwardDir:Vec3;
+	LightSourceUpwardDir:Vec3;
+	LightsourceRightwardDir:Vec3;
+	
+	ObjectData:[MeshObject];
+	Indices:[int];
+	Vertices:[Vec3];
+	
+}

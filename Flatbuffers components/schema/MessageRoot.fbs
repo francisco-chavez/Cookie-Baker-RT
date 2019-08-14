@@ -2,6 +2,7 @@
 namespace FCT.CookieBakerRT.IPC_DataFormat;
 
 include "MyStructs.fbs"
+include "WorkloadRequestMsg.fbs"
 
 
 union MessageDatum { 
