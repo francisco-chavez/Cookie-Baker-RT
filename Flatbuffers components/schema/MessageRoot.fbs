@@ -1,0 +1,19 @@
+
+namespace FCT.CookieBakerRT.IPC_DataFormat;
+
+include "MyStructs.fbs"
+
+
+union MessageDatum { 
+	UpAndRunning, 
+	WorkloadRequest,
+	ProgressUpdate, 
+	WorkloadComplete,
+	CancelWorkload
+}
+
+table Message {
+	Data:MessageDatum;
+}
+
+root_type Message;

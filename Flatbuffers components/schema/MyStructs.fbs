@@ -1,24 +1,25 @@
 
 namespace FCT.CookieBakerRT.IPC_DataFormat;
 
+
 struct Vec3 {
-	x:float;
-	y:float;
-	z:float;
+	x:float = 0.0f;
+	y:float = 0.0f;
+	z:float = 0.0f;
 }
 
 struct Vec4 {
-	x:float;
-	y:float;
-	z:float;
-	w:float;
+	x:float = 0.0f;
+	y:float = 0.0f;
+	z:float = 0.0f;
+	w:float = 0.0f;
 }
 
 struct Color {
-	r:float;
-	g:float;
-	b:float;
-	a;float;
+	r:float = 1.0f;
+	g:float = 1.0f;
+	b:float = 1.0f;
+	a:float = 1.0f;
 }
 
 struct AABB_Bounds {
@@ -27,22 +28,22 @@ struct AABB_Bounds {
 }
 
 struct Matrix4x4 {
-	m_11:float;
-	m_12:float;
-	m_13:float;
-	m_14:float;	
-	m_21:float;
-	m_22:float;
-	m_23:float;
-	m_24:float;	
-	m_31:float;
-	m_32:float;
-	m_33:float;
-	m_34:float;	
-	m_41:float;
-	m_42:float;
-	m_43:float;
-	m_44:float;
+	m_11:float = 1.0f;
+	m_12:float = 0.0f;
+	m_13:float = 0.0f;
+	m_14:float = 0.0f;
+	m_21:float = 0.0f;
+	m_22:float = 1.0f;
+	m_23:float = 0.0f;
+	m_24:float = 0.0f;
+	m_31:float = 0.0f;
+	m_32:float = 0.0f;
+	m_33:float = 1.0f;
+	m_34:float = 0.0f;
+	m_41:float = 0.0f;
+	m_42:float = 0.0f;
+	m_43:float = 0.0f;
+	m_44:float = 1.0f;
 }
 
 struct MeshObject {
