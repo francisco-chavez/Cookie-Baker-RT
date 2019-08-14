@@ -14,6 +14,13 @@ struct Vec4 {
 	w:float;
 }
 
+struct Color {
+	r:float;
+	g:float;
+	b:float;
+	a;float;
+}
+
 struct AABB_Bounds {
 	Center:Vec3;
 	Extent:Vec3;
@@ -43,4 +50,5 @@ struct MeshObject {
 	IndicesOffset:int;
 	IndicesCount:int;
 	VerticesOffset:int;
+	Bounds:AABB_Bounds;
 }
