@@ -8,6 +8,7 @@ include "WorkloadRequestMsg.fbs"
 union MessageDatum { 
 	UpAndRunning, 
 	WorkloadRequest,
+	WorkloadReceived,
 	ProgressUpdate, 
 	WorkloadComplete,
 	CancelWorkload
