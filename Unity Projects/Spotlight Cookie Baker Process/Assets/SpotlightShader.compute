@@ -1,14 +1,139 @@
 ﻿// Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
-// Create a RenderTexture with enableRandomWrite flag and set it
-// with cs.SetTexture
-RWTexture2D<float4> Result;
+
+static const float EPSILON = 1e-9;
+
+
+struct BoundingBox
+{
+	float3		Position;
+	float3		Extent;
+};
+
+struct ObjectMeshDatum
+{
+	int			IndicesOffset;
+	int			IndicesCount;
+	int			VerticesOffset;
+	float4x4	LocalToWorldMatrix;
+	BoundingBox BoundingBox;
+};
+
+struct LightRay
+{
+	float3		Direction;
+	float3		Color;
+	float3		Origin;
+};
+
+struct RayHit
+{
+	float3		Position;
+	float		Distance;
+	float3		Normal;
+	bool		HasAHit;
+};
+
+
+float4								_UV_Offset;
+float								_SampleCount
+int									_MaxSegments;
+float								_ShadowFocusDistance;
+
+float4								_LightPosition;
+float4								_LightForwardDir;
+float4								_LightUpwardDir;
+float4								_LightRightwardDir;
+float								_SpotLightAngleRad;
+
+float								_InnerRange;
+float								_OuterRange;
+
+StructuredBuffer<ObjectMeshDatum>	_MeshObjectData;
+StructuredBuffer<float3>			_Vertices;
+StructuredBuffer<int>				_Indices;
+
+RWTexture2D<float4>					_Result;
+
+
+LightRay CreateInitialLightRay(float2 uv, float halfSize)
+{
+	LightRay lightRay;
+
+	float3 originToShadowPlane = ((_uv.x * halfSize) * _LightRightwardDir.xyz)
+							   + ((_uv.y * halfSize) * _LightUpwardDir.xyz)
+							   + (_ShadowFocusDistance * _LightForwardDir);
+
+	lightRay.Color		= float3(1.0f, 1.0f, 1.0f);
+	lightRay.Origin		= _LightPosition.xyz;
+	lightRay.Direction	= normalize(originToShadowPlane);
+
+	return lightRay;
+}
+
+RayHit CreateRayHit()
+{
+	RayHit hit;
+
+	hit.Position	= float3(0.0f, 0.0f, 0.0f);
+	hit.Distance	= 1.#INF;
+	hit.Normal		= float3(0.0f, 0.0f, 0.0f);
+	hit.HasAHit		= false;
+
+	return hit;
+}
+
+bool TriangleIntersect(LightRay lightRay, float3 vert1, float3 vert2, float3 vert3, out float s, out float3 n)
+{
+	s = 1.#INF;
+
+	float3 edge0 = vert1 - vert0;
+	float3 edge1 = vert2 - vert1;
+
+	n = cross(edge0, edge1);
+
+	float nDotLightRayDir = dot(n, lightRay.Direction);
+	if (nDotLightRayDir > -EPSILON)
+		return false;
+
+	float3 p = lightRay.Origin;
+	s = dot(-n, p0 - vert0) / nDotLightRayDir;
+	float3 intersectionPoint = (s * lightRay.Direction) + p0;
+
+	float3 deltaFromLightSource = intersectionPoint - _LightPosition;
+	float distFromLightSquared = dot(deltaFromLightSource, deltaFromLightSource);
+	if (distFromLightSquared < (_InnerRange * _InnerRange))
+		return false;
+	if (distFromLightSquared < (_OuterRange * _OuterRange))
+		return false;
+
+	float3 c = cross(edge0, n);
+	float3 delta = intersectionPoint - vert0;
+	if (dot(delta, c) > 0.0f)
+		return false;
+
+	c = cross(edge1, n);
+	if (dot(delta, c) < 0.0f)
+		return false;
+
+	c = cross((vert2 - vert1), n);
+	delta = intersectionPoint - vert1;
+	if (dot(delta, c) > 0.0f)
+		return false;
+
+	return true;
+}
+
+RayHit Trace(LightRay lightRay)
+{
+	RayHit bestHit = CreateRayHit();
+
+	return bestHit;
+}
+
 
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    // TODO: insert actual code here!
-
-    Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
 }
