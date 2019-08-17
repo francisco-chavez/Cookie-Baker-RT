@@ -37,7 +37,7 @@ struct RayHit
 
 
 float4								_UV_Offset;
-float								_SampleCount
+float								_SampleCount;
 int									_MaxSegments;
 float								_ShadowFocusDistance;
 
@@ -61,8 +61,8 @@ LightRay CreateInitialLightRay(float2 uv, float halfSize)
 {
 	LightRay lightRay;
 
-	float3 originToShadowPlane = ((_uv.x * halfSize) * _LightRightwardDir.xyz)
-							   + ((_uv.y * halfSize) * _LightUpwardDir.xyz)
+	float3 originToShadowPlane = ((uv.x * halfSize) * _LightRightwardDir.xyz)
+							   + ((uv.y * halfSize) * _LightUpwardDir.xyz)
 							   + (_ShadowFocusDistance * _LightForwardDir);
 
 	lightRay.Color		= float3(1.0f, 1.0f, 1.0f);
@@ -84,7 +84,7 @@ RayHit CreateRayHit()
 	return hit;
 }
 
-bool TriangleIntersect(LightRay lightRay, float3 vert1, float3 vert2, float3 vert3, out float s, out float3 n)
+bool TriangleIntersect(LightRay lightRay, float3 vert0, float3 vert1, float3 vert2, out float s, out float3 n)
 {
 	s = 1.#INF;
 
@@ -98,8 +98,8 @@ bool TriangleIntersect(LightRay lightRay, float3 vert1, float3 vert2, float3 ver
 		return false;
 
 	float3 p = lightRay.Origin;
-	s = dot(-n, p0 - vert0) / nDotLightRayDir;
-	float3 intersectionPoint = (s * lightRay.Direction) + p0;
+	s = dot(-n, lightRay.Origin - vert0) / nDotLightRayDir;
+	float3 intersectionPoint = (s * lightRay.Direction) + lightRay.Origin;
 
 	float3 deltaFromLightSource = intersectionPoint - _LightPosition;
 	float distFromLightSquared = dot(deltaFromLightSource, deltaFromLightSource);
@@ -125,9 +125,61 @@ bool TriangleIntersect(LightRay lightRay, float3 vert1, float3 vert2, float3 ver
 	return true;
 }
 
+bool IntersectsBoundingBox(LightRay lightRay, BoundingBox boundingBox)
+{
+	return false;
+}
+
 RayHit Trace(LightRay lightRay)
 {
 	RayHit bestHit = CreateRayHit();
+	uint objectCount, stride, i, j, subIndex0;
+
+	_MeshObjectData.GetDimensions(objectCount, stride);
+
+	for (i = 0; i < objectCount; i++)
+	{
+		ObjectMeshDatum objectDatum = _MeshObjectData[i];
+
+		if (!IntersectsBoundingBox(lightRay, objectDatum.BoundingBox))
+			continue;
+
+		for (j = 0; j < objectDatum.IndicesCount; j += 3)
+		{
+			subIndex0 = j + objectDatum.IndicesOffset;
+
+			float3 v0 = _Vertices[_Indices[subIndex0 + 0] + objectDatum.VerticesOffset];
+			float3 v1 = _Vertices[_Indices[subIndex0 + 1] + objectDatum.VerticesOffset];
+			float3 v2 = _Vertices[_Indices[subIndex0 + 2] + objectDatum.VerticesOffset];
+
+			float4 v0_local = float4(v0, 1.0f);
+			float4 v1_local = float4(v1, 1.0f);
+			float4 v2_local = float4(v2, 1.0f);
+
+			v0 = mul(objectDatum.LocalToWorldMatrix, v0_local).xyz;
+			v1 = mul(objectDatum.LocalToWorldMatrix, v1_local).xyz;
+			v2 = mul(objectDatum.LocalToWorldMatrix, v2_local).xyz;
+
+			float s = 1.#INF;
+			float3 n = float3(1.0f, 1.0f, 1.0f);
+
+			bool theresAHit = TriangleIntersect(lightRay, v0, v1, v2, s, n);
+
+			if (theresAHit)
+			{
+				if (0.0f < s && s < bestHit.Distance)
+				{
+					bestHit.Distance	= s;
+					bestHit.Position	= lightRay.Origin + (s * lightRay.Direction);
+					bestHit.Normal		= n;
+					bestHit.HasAHit		= true;
+				}
+			}
+		}
+	}
+
+	if (bestHit.HasAHit)
+		bestHit.Normal = normalize(bestHit.Normal);
 
 	return bestHit;
 }
