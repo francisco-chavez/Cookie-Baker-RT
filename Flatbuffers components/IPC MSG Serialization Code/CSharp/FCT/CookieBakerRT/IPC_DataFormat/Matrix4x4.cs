@@ -8,8 +8,6 @@ namespace FCT.CookieBakerRT.IPC_DataFormat
 using global::System;
 using global::FlatBuffers;
 
-
-import javax.annotation.Nullable;
 public struct Matrix4x4 : IFlatbufferObject
 {
   private Struct __p;

@@ -8,8 +8,6 @@ namespace FCT.CookieBakerRT.IPC_DataFormat
 using global::System;
 using global::FlatBuffers;
 
-
-import javax.annotation.Nullable;
 public struct WorkloadReceived : IFlatbufferObject
 {
   private Table __p;

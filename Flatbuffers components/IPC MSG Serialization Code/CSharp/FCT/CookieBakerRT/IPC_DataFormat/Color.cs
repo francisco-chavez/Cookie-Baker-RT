@@ -8,8 +8,6 @@ namespace FCT.CookieBakerRT.IPC_DataFormat
 using global::System;
 using global::FlatBuffers;
 
-
-import javax.annotation.Nullable;
 public struct Color : IFlatbufferObject
 {
   private Struct __p;
