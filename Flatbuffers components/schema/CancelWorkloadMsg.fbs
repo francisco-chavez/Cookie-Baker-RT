@@ -4,4 +4,5 @@ namespace FCT.CookieBakerRT.IPC_DataFormat;
 include "MyStructs.fbs"
 
 table CancelWorkload {
+	WorkloadID:int;
 }
