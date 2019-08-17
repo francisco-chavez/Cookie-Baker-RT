@@ -1,7 +1,12 @@
 
 namespace FCT.CookieBakerRT.IPC_DataFormat;
 
-include "MyStructs.fbs"
+include "MyStructs.fbs
+include "CancelWorkloadMsg.fbs"
+include "ProgressUpdateMsg.fbs"
+include "UpAndRunningMsg.fbs"
+include "WorkloadCompleteMsg.fbs"
+include "WorkloadReceivedMsg.fbs"
 include "WorkloadRequestMsg.fbs"
 
 
