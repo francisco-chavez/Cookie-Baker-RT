@@ -1,7 +1,8 @@
 
+include "MyStructs.fbs";
+
 namespace FCT.CookieBakerRT.IPC_DataFormat;
 
-include "MyStructs.fbs"
 
 table WorkloadReceived {
 	WorkloadID:int;
