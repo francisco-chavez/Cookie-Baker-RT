@@ -528,6 +528,27 @@ namespace FCT.CookieBakerP03
 		{
 			var args = e.Argument as BackgroundWorkerArgs;
 
+			var messageData = SerialzeWorkloadRequest(args);
+
+			args.Complete = true;
+		}
+
+		private byte[] SerialzeWorkloadRequest(BackgroundWorkerArgs args)
+		{
+
+			int bufferSize = 10;									// A bit of slack
+
+			bufferSize += (4 * 3 * 3);								// Light-Position, Forward-Dir, UpwardDir
+			bufferSize += args.Indices.Count * 4;
+			bufferSize += args.Vertices.Count * 4 * 3;
+			bufferSize += args.ObjectData.Count * ((4 * 4 * 4)		// Matrix 4x4
+												+ (4 * 3)			// Offsets (and count)
+												+ (2 * 3 * 4));     // Bounds
+
+			bufferSize += 13 * 4;									// A quick quess at the size of the rest of what goes into the WorkRequest
+			bufferSize += 2 * 4;									// A quick guess at the size of the root message.
+
+
 			// With the way that flatbuffers (that's a singular proper-noun that uses a lowercase starting letter, 
 			// don't ask me why, I didn't name the thing) works, it encodes the data as a byte-array. Only, it does 
 			// this piece by piece, return offsets objects that tells you the location with-in the byte-array. 
@@ -535,7 +556,7 @@ namespace FCT.CookieBakerP03
 			// already been encoded. For more complicated data where you know that a value or child object gets 
 			// shared, you can use the same offset to cutdown on the overall size of the byte-array. This also lets
 			// you do things like decreasing the size of the byte-array by leaving out values.
-			var builder				= new FlatBufferBuilder(1024);
+			var builder = new FlatBufferBuilder(bufferSize);
 
 			// It's been a while since I last used flatbuffers, so I don't remember which items are supposed to be 
 			// created inside of which other-items. I'll learn as I get error codes telling me what to do.
@@ -566,7 +587,7 @@ namespace FCT.CookieBakerP03
 					objectDatum.LocalToWorldMatrix.m10, objectDatum.LocalToWorldMatrix.m11, objectDatum.LocalToWorldMatrix.m12, objectDatum.LocalToWorldMatrix.m13,
 					objectDatum.LocalToWorldMatrix.m20, objectDatum.LocalToWorldMatrix.m21, objectDatum.LocalToWorldMatrix.m22, objectDatum.LocalToWorldMatrix.m23,
 					objectDatum.LocalToWorldMatrix.m30, objectDatum.LocalToWorldMatrix.m31, objectDatum.LocalToWorldMatrix.m32, objectDatum.LocalToWorldMatrix.m33,
-					objectDatum.IndicesOffset, objectDatum.IndicesCount, objectDatum.VerticesOffset, 
+					objectDatum.IndicesOffset, objectDatum.IndicesCount, objectDatum.VerticesOffset,
 					objectDatum.Bounds.Center.x, objectDatum.Bounds.Center.y, objectDatum.Bounds.Center.z,
 					objectDatum.Bounds.Extent.x, objectDatum.Bounds.Extent.y, objectDatum.Bounds.Extent.z);
 			}
@@ -591,10 +612,18 @@ namespace FCT.CookieBakerP03
 			WorkloadRequest.AddVertices(builder, vertsVectorOffset);
 			WorkloadRequest.AddObjectData(builder, objectDataVectorOffset);
 
-
 			var workloadRequestOffset = WorkloadRequest.EndWorkloadRequest(builder);
 
-			args.Complete = true;
+
+			Message.StartMessage(builder);
+
+			Message.AddData(builder, workloadRequestOffset.Value);
+			Message.AddDataType(builder, MessageDatum.WorkloadRequest);
+
+			var messageOffset = Message.EndMessage(builder);
+
+			builder.Finish(messageOffset.Value);
+			return builder.SizedByteArray();
 		}
 
 
