@@ -14,8 +14,11 @@ using UnityEditorInternal;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering.HDPipeline;
 
-using RandomS = System.Random;
+using FCT.CookieBakerRT.IPC_DataFormat;
 
+using RandomS = System.Random;
+using Color = UnityEngine.Color;
+using FlatBuffers;
 
 namespace FCT.CookieBakerP03
 {
@@ -509,7 +512,7 @@ namespace FCT.CookieBakerP03
 			// Apply the Texture2D to the light as a cooke, then finish cleaning up.
 			s_currentLightComponent.cookie = finalResults;
 			EditorUtility.SetDirty(s_currentLightComponent.gameObject);
-			s_bakingCoroutine	= null;     // The coroutines for MonoBehaviors have the option to manipulate them from the outside, which I have 
+			s_bakingCoroutine	= null;		// The coroutines for MonoBehaviors have the option to manipulate them from the outside, which I have 
 											// made use of. With a bit of luck, those functions will be added to the EditorCoroutines at some point 
 											// in time.
 											// -FCT
@@ -521,6 +524,35 @@ namespace FCT.CookieBakerP03
 		{
 			var args = e.Argument as BackgroundWorkerArgs;
 
+			// With the way that flatbuffers (that's a singular proper-noun that uses a lowercase starting letter, 
+			// don't ask me why, I didn't name the thing) works, it encodes the data as a byte-array. Only, it does 
+			// this piece by piece, return offsets objects that tells you the location with-in the byte-array. 
+			// Then, when you create the larger pieces (tables), you feed it the offsets of the child data that has 
+			// already been encoded. For more complicated data where you know that a value or child object gets 
+			// shared, you can use the same offset to cutdown on the overall size of the byte-array. This also lets
+			// you do things like decreasing the size of the byte-array by leaving out values.
+			var builder				= new FlatBufferBuilder(1024);
+
+			var lightForwardOffset	= Vec3.CreateVec3(builder, args.LightForward.x, args.LightForward.y, args.LightForward.z);
+			var lightUpwardOffset	= Vec3.CreateVec3(builder, args.LightUpward.x, args.LightUpward.y, args.LightUpward.z);
+			var lightPositionOffset = Vec3.CreateVec3(builder, args.LightPosition.x, args.LightPosition.y, args.LightPosition.z);
+
+			WorkloadRequest.StartWorkloadRequest(builder);
+
+			WorkloadRequest.AddLightSourceForwardDir(builder, lightForwardOffset);
+			WorkloadRequest.AddLightSourceUpwardDir(builder, lightUpwardOffset);
+			WorkloadRequest.AddLightSourcePosition(builder, lightPositionOffset);
+
+			WorkloadRequest.AddBounceCount(builder, s_maxBounceCount);
+			WorkloadRequest.AddMaxRange(builder, s_outerRadius);
+			WorkloadRequest.AddMinRange(builder, s_innerRadius);
+			WorkloadRequest.AddSampleCount(builder, s_sampleCount);
+			WorkloadRequest.AddShadowFocusPlane(builder, s_shadowFocusDistance);
+
+			var workloadRequestOffset = WorkloadRequest.EndWorkloadRequest(builder);
+
+
+
 			args.Complete = true;
 		}
 
@@ -529,7 +561,16 @@ namespace FCT.CookieBakerP03
 
 		private class BackgroundWorkerArgs
 		{
-			public bool Complete = false;
+			public bool					Complete		= false;
+
+			public List<MeshObjectData> ObjectData;
+			public List<int>			Indices;
+			public List<Vector3>		Vertices;
+
+			public Vector3				LightForward;
+			public Vector3				LightUpward;
+			public Vector3				LightRightward;
+			public Vector3				LightPosition;
 		}
 
 		/// <summary>
@@ -547,7 +588,7 @@ namespace FCT.CookieBakerP03
 
 		private struct MeshObjectData
 		{
-			public Matrix4x4				LocalToWorldMatrix;
+			public UnityEngine.Matrix4x4	LocalToWorldMatrix;
 			public Int32					IndicesOffset;
 			public Int32					IndicesCount;
 			public Int32					VerticesOffset;	
