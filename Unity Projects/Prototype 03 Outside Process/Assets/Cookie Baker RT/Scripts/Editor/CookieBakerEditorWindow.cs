@@ -15,10 +15,8 @@ using UnityEngine;
 using UnityEngine.Experimental.Rendering.HDPipeline;
 
 using FCT.CookieBakerRT.IPC_DataFormat;
-
-using RandomS = System.Random;
-using Color = UnityEngine.Color;
 using FlatBuffers;
+
 
 namespace FCT.CookieBakerP03
 {
@@ -453,7 +451,13 @@ namespace FCT.CookieBakerP03
 			///
 			var backgroundWorkerArgs = new BackgroundWorkerArgs()
 			{
+				Indices			= indexList,
+				ObjectData		= meshObjecRefData,
+				Vertices		= vertexList,
 
+				LightPosition	= lightCenter,
+				LightForward	= s_currentLightComponent.transform.forward,
+				LightUpward		= s_currentLightComponent.transform.up
 			};
 			yield return null;
 
@@ -639,7 +643,6 @@ namespace FCT.CookieBakerP03
 
 			public Vector3				LightForward;
 			public Vector3				LightUpward;
-			public Vector3				LightRightward;
 			public Vector3				LightPosition;
 		}
 
