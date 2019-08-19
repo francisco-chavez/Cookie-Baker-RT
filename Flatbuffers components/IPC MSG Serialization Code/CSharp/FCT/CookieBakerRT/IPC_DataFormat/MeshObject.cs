@@ -21,7 +21,7 @@ public struct MeshObject : IFlatbufferObject
   public int VerticesOffset { get { return __p.bb.GetInt(__p.bb_pos + 72); } }
   public FCT.CookieBakerRT.IPC_DataFormat.AABB_Bounds Bounds { get { return (new FCT.CookieBakerRT.IPC_DataFormat.AABB_Bounds()).__assign(__p.bb_pos + 76, __p.bb); } }
 
-  public static Offset<FCT.CookieBakerRT.IPC_DataFormat.MeshObject> CreateMeshObject(FlatBufferBuilder builder, float LocalToWorldMatrix_M11, float LocalToWorldMatrix_M12, float LocalToWorldMatrix_M13, float LocalToWorldMatrix_M14, float LocalToWorldMatrix_M21, float LocalToWorldMatrix_M22, float LocalToWorldMatrix_M23, float LocalToWorldMatrix_M24, float LocalToWorldMatrix_M31, float LocalToWorldMatrix_M32, float LocalToWorldMatrix_M33, float LocalToWorldMatrix_M34, float LocalToWorldMatrix_M41, float LocalToWorldMatrix_M42, float LocalToWorldMatrix_M43, float LocalToWorldMatrix_M44, int IndicesOffset, int IndicesCount, int VerticesOffset, float Bounds_Center_X, float Bounds_Center_Y, float Bounds_Center_Z, float Bounds_Extent_X, float Bounds_Extent_Y, float Bounds_Extent_Z) {
+  public static Offset<FCT.CookieBakerRT.IPC_DataFormat.MeshObject> CreateMeshObject(FlatBufferBuilder builder, float LocalToWorldMatrix_M00, float LocalToWorldMatrix_M01, float LocalToWorldMatrix_M02, float LocalToWorldMatrix_M03, float LocalToWorldMatrix_M10, float LocalToWorldMatrix_M11, float LocalToWorldMatrix_M12, float LocalToWorldMatrix_M13, float LocalToWorldMatrix_M20, float LocalToWorldMatrix_M21, float LocalToWorldMatrix_M22, float LocalToWorldMatrix_M23, float LocalToWorldMatrix_M30, float LocalToWorldMatrix_M31, float LocalToWorldMatrix_M32, float LocalToWorldMatrix_M33, int IndicesOffset, int IndicesCount, int VerticesOffset, float Bounds_Center_X, float Bounds_Center_Y, float Bounds_Center_Z, float Bounds_Extent_X, float Bounds_Extent_Y, float Bounds_Extent_Z) {
     builder.Prep(4, 100);
     builder.Prep(4, 24);
     builder.Prep(4, 12);
@@ -36,22 +36,22 @@ public struct MeshObject : IFlatbufferObject
     builder.PutInt(IndicesCount);
     builder.PutInt(IndicesOffset);
     builder.Prep(4, 64);
-    builder.PutFloat(LocalToWorldMatrix_M44);
-    builder.PutFloat(LocalToWorldMatrix_M43);
-    builder.PutFloat(LocalToWorldMatrix_M42);
-    builder.PutFloat(LocalToWorldMatrix_M41);
-    builder.PutFloat(LocalToWorldMatrix_M34);
     builder.PutFloat(LocalToWorldMatrix_M33);
     builder.PutFloat(LocalToWorldMatrix_M32);
     builder.PutFloat(LocalToWorldMatrix_M31);
-    builder.PutFloat(LocalToWorldMatrix_M24);
+    builder.PutFloat(LocalToWorldMatrix_M30);
     builder.PutFloat(LocalToWorldMatrix_M23);
     builder.PutFloat(LocalToWorldMatrix_M22);
     builder.PutFloat(LocalToWorldMatrix_M21);
-    builder.PutFloat(LocalToWorldMatrix_M14);
+    builder.PutFloat(LocalToWorldMatrix_M20);
     builder.PutFloat(LocalToWorldMatrix_M13);
     builder.PutFloat(LocalToWorldMatrix_M12);
     builder.PutFloat(LocalToWorldMatrix_M11);
+    builder.PutFloat(LocalToWorldMatrix_M10);
+    builder.PutFloat(LocalToWorldMatrix_M03);
+    builder.PutFloat(LocalToWorldMatrix_M02);
+    builder.PutFloat(LocalToWorldMatrix_M01);
+    builder.PutFloat(LocalToWorldMatrix_M00);
     return new Offset<FCT.CookieBakerRT.IPC_DataFormat.MeshObject>(builder.Offset);
   }
 };

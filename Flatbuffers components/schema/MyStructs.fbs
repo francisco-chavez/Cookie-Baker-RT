@@ -8,42 +8,28 @@ struct Vec3 {
 	z:float;
 }
 
-struct Vec4 {
-	x:float;
-	y:float;
-	z:float;
-	w:float;
-}
-
-struct Color {
-	r:float;
-	g:float;
-	b:float;
-	a:float;
-}
-
 struct AABB_Bounds {
 	Center:Vec3;
 	Extent:Vec3;
 }
 
 struct Matrix4x4 {
+	m_00:float;
+	m_01:float;
+	m_02:float;
+	m_03:float;
+	m_10:float;
 	m_11:float;
 	m_12:float;
 	m_13:float;
-	m_14:float;
+	m_20:float;
 	m_21:float;
 	m_22:float;
 	m_23:float;
-	m_24:float;
+	m_30:float;
 	m_31:float;
 	m_32:float;
 	m_33:float;
-	m_34:float;
-	m_41:float;
-	m_42:float;
-	m_43:float;
-	m_44:float;
 }
 
 struct MeshObject {

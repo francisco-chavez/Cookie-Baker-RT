@@ -19,7 +19,6 @@ table WorkloadRequest {
 	LightSourcePosition:Vec3;
 	LightSourceForwardDir:Vec3;
 	LightSourceUpwardDir:Vec3;
-	LightsourceRightwardDir:Vec3;
 	
 	ObjectData:[MeshObject];
 	Indices:[int];
