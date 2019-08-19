@@ -7,7 +7,7 @@ static const float EPSILON = 1e-9;
 
 struct BoundingBox
 {
-	float3		Position;
+	float3		Center;
 	float3		Extent;
 };
 
@@ -40,6 +40,7 @@ float4								_UV_Offset;
 float								_SampleCount;
 int									_MaxSegments;
 float								_ShadowFocusDistance;
+int									_ImageResolution;
 
 float4								_LightPosition;
 float4								_LightForwardDir;
@@ -125,9 +126,54 @@ bool TriangleIntersect(LightRay lightRay, float3 vert0, float3 vert1, float3 ver
 	return true;
 }
 
+// https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
 bool IntersectsBoundingBox(LightRay lightRay, BoundingBox boundingBox)
 {
-	return false;
+	// We will be adding 3/4 of a centimeter to the bounding box as a safety margin to avoid false 
+	// negatives. This will increase the number of false positives, which will cut down on performance, but
+	// oh, well.
+	// -FCT
+	float3 boxMin = boundingBox.Center - (boundingBox.Extent + float3(0.0075f, 0.0075f, 0.0075f));
+	float3 boxMax = boundingBox.Center + (boundingBox.Extent + float3(0.0075f, 0.0075f, 0.0075f));
+
+
+	float tmin = (boxMin.x - lightRay.Origin.x) / lightRay.Direction.x;
+	float tmax = (boxMax.x - lightRay.Origin.x) / lightRay.Direction.x;
+
+	float tymin = (boxMin.y - lightRay.Origin.y) / lightRay.Direction.y;
+	float tymax = (boxMax.y - lightRay.Origin.y) / lightRay.Direction.y;
+
+	if (tmin > tmax)
+	{
+		float t = tmin;
+		tmin = tmax;
+		tmax = t;
+	}
+
+	if (tymin > tymax)
+	{
+		float t = tymin;
+		tymin = tymax;
+		tymax = t;
+	}
+
+	if ((tmin > tymax) || (tymin > tmax))
+		return false;
+
+	tmin = (tymin > tmin) ? tymin : tmin;
+	tmax = (tymax < tmax) ? tymax : tmax;
+
+	float tzmin = (boxMin.z - lightRay.Origin.z) / lightRay.Direction.z;
+	float tzmax = (boxMax.z - lightRay.Origin.z) / lightRay.Direction.z;
+
+	if (tzmin > tzmax)
+	{
+		float t = tzmin;
+		tzmin = tzmax;
+		tzmax = t;
+	}
+
+	return !((tmin > tzmax) || (tzmin > tmax));
 }
 
 RayHit Trace(LightRay lightRay)
@@ -148,22 +194,25 @@ RayHit Trace(LightRay lightRay)
 		{
 			subIndex0 = j + objectDatum.IndicesOffset;
 
-			float3 v0 = _Vertices[_Indices[subIndex0 + 0] + objectDatum.VerticesOffset];
-			float3 v1 = _Vertices[_Indices[subIndex0 + 1] + objectDatum.VerticesOffset];
-			float3 v2 = _Vertices[_Indices[subIndex0 + 2] + objectDatum.VerticesOffset];
+			// Grab the triangle verts, which are in Local-Space.
+			float3	v0			= _Vertices[_Indices[subIndex0 + 0] + objectDatum.VerticesOffset];
+			float3	v1			= _Vertices[_Indices[subIndex0 + 1] + objectDatum.VerticesOffset];
+			float3	v2			= _Vertices[_Indices[subIndex0 + 2] + objectDatum.VerticesOffset];
 
-			float4 v0_local = float4(v0, 1.0f);
-			float4 v1_local = float4(v1, 1.0f);
-			float4 v2_local = float4(v2, 1.0f);
+			// Convert the verts into 4D positional vectors for matrix multiplication
+			float4	v0_local	= float4(v0, 1.0f);
+			float4	v1_local	= float4(v1, 1.0f);
+			float4	v2_local	= float4(v2, 1.0f);
 
-			v0 = mul(objectDatum.LocalToWorldMatrix, v0_local).xyz;
-			v1 = mul(objectDatum.LocalToWorldMatrix, v1_local).xyz;
-			v2 = mul(objectDatum.LocalToWorldMatrix, v2_local).xyz;
+			// Convert the verts to World-Space positions and convert back to 3D.
+			v0					= mul(objectDatum.LocalToWorldMatrix, v0_local).xyz;
+			v1					= mul(objectDatum.LocalToWorldMatrix, v1_local).xyz;
+			v2					= mul(objectDatum.LocalToWorldMatrix, v2_local).xyz;
 
-			float s = 1.#INF;
-			float3 n = float3(1.0f, 1.0f, 1.0f);
+			float	s			= 1.#INF;
+			float3	n			= float3(1.0f, 1.0f, 1.0f);
 
-			bool theresAHit = TriangleIntersect(lightRay, v0, v1, v2, s, n);
+			bool	theresAHit	= TriangleIntersect(lightRay, v0, v1, v2, s, n);
 
 			if (theresAHit)
 			{
@@ -188,4 +237,41 @@ RayHit Trace(LightRay lightRay)
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
+	float2 pixel = float2(id.x, id.y) + _UV_Offset.xy;
+	float2 uv = pixel / _ImageResolution;
+	uv *= 2.0f;
+	uv -= 1.0f;
+
+	float halfSize = _ShadowFocusDistance * tan(_SpotLightAngleRad);
+
+	LightRay lightRay = CreateInitialLightRay(uv, halfSize);
+
+	for (int i = 0; i < _MaxSegments; i++)
+	{
+		RayHit hit = Trace(lightRay);
+
+		if (hit.hasAHit)
+		{
+			lightRay.Color *= 0.75f;
+			lightRay.Direction = hit.Normal;
+			lighRay.Origin = hit.Position + (0.00075f * hit.Normal);
+		}
+		else
+		{
+			j = _MaxSegments;
+		}
+	}
+
+	float3 n = -_LightForwardDir.xyz;
+	float nDotLightRayDir = dot(n, lightRay.Direction);
+	if (ndotLightRayDir > -EPSILON)
+		return;
+
+	float3 v0 = (_ShadowFocusDistance * _LightForwardDir.xyz) + _LightPosition.xyz;
+	float3 p0 = _LightPosition.xyz;
+
+	float si = dot(-n, p0 - v0) / ndotLightRayDir;
+	float3 lightPoint = (si * lightRay.Direction) + p0;
+
+	// Looks at line 628 to continue.
 }
