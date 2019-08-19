@@ -250,28 +250,49 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	{
 		RayHit hit = Trace(lightRay);
 
-		if (hit.hasAHit)
+		if (hit.HasAHit)
 		{
 			lightRay.Color *= 0.75f;
 			lightRay.Direction = hit.Normal;
-			lighRay.Origin = hit.Position + (0.00075f * hit.Normal);
+			lightRay.Origin = hit.Position + (0.00075f * hit.Normal);
+
+			// If the amount of light that's left is basically zero, then there isn't much point if figuring out 
+			// where the light-ray will land, because it won't be adding anything to the result.
+			if ((lightRay.Color.x < EPSILON) && (lightRay.Color.y < EPSILON) && (lightRay.Color.z < EPSILON))
+				return;
 		}
 		else
 		{
-			j = _MaxSegments;
+			i = _MaxSegments;
 		}
 	}
 
 	float3 n = -_LightForwardDir.xyz;
 	float nDotLightRayDir = dot(n, lightRay.Direction);
-	if (ndotLightRayDir > -EPSILON)
+	if (nDotLightRayDir > -EPSILON)
 		return;
 
 	float3 v0 = (_ShadowFocusDistance * _LightForwardDir.xyz) + _LightPosition.xyz;
 	float3 p0 = _LightPosition.xyz;
 
-	float si = dot(-n, p0 - v0) / ndotLightRayDir;
+	float si = dot(-n, p0 - v0) / nDotLightRayDir;
 	float3 lightPoint = (si * lightRay.Direction) + p0;
 
-	// Looks at line 628 to continue.
+	float3 planeCoord = lightPoint - v0;
+	float uOffset = dot(planeCoord, _LightRightwardDir.xyz);
+	float vOffset = dot(planeCoord, _LightUpwardDir.xyz);
+	float2 uvPrime = float2(uOffset, vOffset);
+	uvPrime /= halfSize;
+
+	if (uvPrime.x * uvPrime.x >= 1.0f)
+		return;
+	if (uvPrime.y * uvPrime.y >= 1.0f)
+		return;
+
+	float2 pixPrime = uvPrime + 1.0f;
+	pixPrime *= _ImageResolution / 2.0f;
+	int2 xyPrime = int2(trunc(pixPrime.x), trunc(pixPrime.y));
+
+	float4 colorPrime = (1.0f / _SampleCount) * float4(lightRay.Color, 1.0f);
+	_Result[xyPrime] += colorPrime;
 }
