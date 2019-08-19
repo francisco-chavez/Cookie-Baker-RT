@@ -519,7 +519,9 @@ namespace FCT.CookieBakerP03
 
 		private void BackgroundWorker_DoWork(object sender, DoWorkEventArgs e)
 		{
-			throw new NotImplementedException();
+			var args = e.Argument as BackgroundWorkerArgs;
+
+			args.Complete = true;
 		}
 
 
