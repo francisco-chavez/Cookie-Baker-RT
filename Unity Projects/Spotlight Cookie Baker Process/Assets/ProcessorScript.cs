@@ -8,5 +8,6 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 	public class ProcessorScript 
 		: MonoBehaviour
 	{
+		public ComputeShader ComputeShader;
 	}
 }
