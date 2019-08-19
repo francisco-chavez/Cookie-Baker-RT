@@ -434,7 +434,11 @@ namespace FCT.CookieBakerP03
 					IndicesOffset		= indexList.Count,				// The starting index of the vert-index for this object's mesh.
 					IndicesCount		= meshTriangleIndices.Length,	// The number of indices used to form all of the mesh triangles.
 					VerticesOffset		= vertexList.Count,
-					Bounds				= new Bounds(processMeshRenderer[i].bounds)
+					Bounds				= new Bounds()
+										  {
+												Center = processMeshRenderer[i].bounds.center,
+												Extent = processMeshRenderer[i].bounds.extents
+										  }
 				};
 
 				meshObjecRefData.Add(meshRefDatum);
@@ -533,9 +537,41 @@ namespace FCT.CookieBakerP03
 			// you do things like decreasing the size of the byte-array by leaving out values.
 			var builder				= new FlatBufferBuilder(1024);
 
+			// It's been a while since I last used flatbuffers, so I don't remember which items are supposed to be 
+			// created inside of which other-items. I'll learn as I get error codes telling me what to do.
+			// -FCT
 			var lightForwardOffset	= Vec3.CreateVec3(builder, args.LightForward.x, args.LightForward.y, args.LightForward.z);
 			var lightUpwardOffset	= Vec3.CreateVec3(builder, args.LightUpward.x, args.LightUpward.y, args.LightUpward.z);
 			var lightPositionOffset = Vec3.CreateVec3(builder, args.LightPosition.x, args.LightPosition.y, args.LightPosition.z);
+
+
+			var indicesVectorOffset = WorkloadRequest.CreateIndicesVector(builder, args.Indices.ToArray());
+
+			WorkloadRequest.StartVerticesVector(builder, args.Vertices.Count);
+			foreach (var vert in args.Vertices)
+				Vec3.CreateVec3(builder, vert.x, vert.y, vert.z);
+			var vertsVectorOffset = builder.EndVector();
+
+			WorkloadRequest.StartObjectDataVector(builder, args.ObjectData.Count);
+			foreach (var objectDatum in args.ObjectData)
+			{
+				// I wasn't expecting the constructor of a struct with embedded structs to rollout the embedded 
+				// structs, but it does make sense. How else would we created the embedded structs without adding them
+				// to the builder first and then setting their offset into the parent struct? Doing it this way cuts 
+				// down on the size of the byte-arra, but it really is a bit of a pain to type this out without any 
+				// mistakes.
+				// -FCT
+				MeshObject.CreateMeshObject(builder,
+					objectDatum.LocalToWorldMatrix.m00, objectDatum.LocalToWorldMatrix.m01, objectDatum.LocalToWorldMatrix.m02, objectDatum.LocalToWorldMatrix.m03,
+					objectDatum.LocalToWorldMatrix.m10, objectDatum.LocalToWorldMatrix.m11, objectDatum.LocalToWorldMatrix.m12, objectDatum.LocalToWorldMatrix.m13,
+					objectDatum.LocalToWorldMatrix.m20, objectDatum.LocalToWorldMatrix.m21, objectDatum.LocalToWorldMatrix.m22, objectDatum.LocalToWorldMatrix.m23,
+					objectDatum.LocalToWorldMatrix.m30, objectDatum.LocalToWorldMatrix.m31, objectDatum.LocalToWorldMatrix.m32, objectDatum.LocalToWorldMatrix.m33,
+					objectDatum.IndicesOffset, objectDatum.IndicesCount, objectDatum.VerticesOffset, 
+					objectDatum.Bounds.Center.x, objectDatum.Bounds.Center.y, objectDatum.Bounds.Center.z,
+					objectDatum.Bounds.Extent.x, objectDatum.Bounds.Extent.y, objectDatum.Bounds.Extent.z);
+			}
+			var objectDataVectorOffset = builder.EndVector();
+
 
 			WorkloadRequest.StartWorkloadRequest(builder);
 
@@ -548,10 +584,15 @@ namespace FCT.CookieBakerP03
 			WorkloadRequest.AddMinRange(builder, s_innerRadius);
 			WorkloadRequest.AddSampleCount(builder, s_sampleCount);
 			WorkloadRequest.AddShadowFocusPlane(builder, s_shadowFocusDistance);
+			WorkloadRequest.AddWorklodID(builder, 25);
+			WorkloadRequest.AddResolution(builder, s_resolutionOptions[s_selectedCookieResolution]);
+
+			WorkloadRequest.AddIndices(builder, indicesVectorOffset);
+			WorkloadRequest.AddVertices(builder, vertsVectorOffset);
+			WorkloadRequest.AddObjectData(builder, objectDataVectorOffset);
+
 
 			var workloadRequestOffset = WorkloadRequest.EndWorkloadRequest(builder);
-
-
 
 			args.Complete = true;
 		}
