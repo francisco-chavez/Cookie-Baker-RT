@@ -459,6 +459,7 @@ namespace FCT.CookieBakerP03
 				LightForward	= s_currentLightComponent.transform.forward,
 				LightUpward		= s_currentLightComponent.transform.up
 			};
+
 			yield return null;
 
 			using (var backgroundWorker = new BackgroundWorker())
@@ -562,14 +563,6 @@ namespace FCT.CookieBakerP03
 			// you do things like decreasing the size of the byte-array by leaving out values.
 			var builder = new FlatBufferBuilder(bufferSize);
 
-			// It's been a while since I last used flatbuffers, so I don't remember which items are supposed to be 
-			// created inside of which other-items. I'll learn as I get error codes telling me what to do.
-			// -FCT
-			var lightForwardOffset	= Vec3.CreateVec3(builder, args.LightForward.x, args.LightForward.y, args.LightForward.z);
-			var lightUpwardOffset	= Vec3.CreateVec3(builder, args.LightUpward.x, args.LightUpward.y, args.LightUpward.z);
-			var lightPositionOffset = Vec3.CreateVec3(builder, args.LightPosition.x, args.LightPosition.y, args.LightPosition.z);
-
-
 			var indicesVectorOffset = WorkloadRequest.CreateIndicesVector(builder, args.Indices.ToArray());
 
 			WorkloadRequest.StartVerticesVector(builder, args.Vertices.Count);
@@ -583,7 +576,7 @@ namespace FCT.CookieBakerP03
 				// I wasn't expecting the constructor of a struct with embedded structs to rollout the embedded 
 				// structs, but it does make sense. How else would we created the embedded structs without adding them
 				// to the builder first and then setting their offset into the parent struct? Doing it this way cuts 
-				// down on the size of the byte-arra, but it really is a bit of a pain to type this out without any 
+				// down on the size of the byte-array, but it really is a bit of a pain to type this out without any 
 				// mistakes.
 				// -FCT
 				MeshObject.CreateMeshObject(builder,
@@ -600,9 +593,14 @@ namespace FCT.CookieBakerP03
 
 			WorkloadRequest.StartWorkloadRequest(builder);
 
-			WorkloadRequest.AddLightSourceForwardDir(builder, lightForwardOffset);
-			WorkloadRequest.AddLightSourceUpwardDir(builder, lightUpwardOffset);
-			WorkloadRequest.AddLightSourcePosition(builder, lightPositionOffset);
+			// While I'm able to create an array of structs well before I'm going to use them, it seems that when 
+			// it comes to the structs themselves, I need to create them as I use them.
+			WorkloadRequest.AddLightSourceForwardDir(builder, 
+													 Vec3.CreateVec3(builder, args.LightForward.x, args.LightForward.y, args.LightForward.z));
+			WorkloadRequest.AddLightSourceUpwardDir(builder, 
+													Vec3.CreateVec3(builder, args.LightUpward.x, args.LightUpward.y, args.LightUpward.z));
+			WorkloadRequest.AddLightSourcePosition(builder, 
+												   Vec3.CreateVec3(builder, args.LightPosition.x, args.LightPosition.y, args.LightPosition.z));
 
 			WorkloadRequest.AddBounceCount(builder, s_maxBounceCount);
 			WorkloadRequest.AddMaxRange(builder, s_outerRadius);
