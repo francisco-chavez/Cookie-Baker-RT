@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 
 using Unity.EditorCoroutines;
@@ -16,7 +17,7 @@ using UnityEngine.Experimental.Rendering.HDPipeline;
 
 using FCT.CookieBakerRT.IPC_DataFormat;
 using FlatBuffers;
-
+using System.Net;
 
 namespace FCT.CookieBakerP03
 {
@@ -532,8 +533,16 @@ namespace FCT.CookieBakerP03
 		private void BackgroundWorker_DoWork(object sender, DoWorkEventArgs e)
 		{
 			var args = e.Argument as BackgroundWorkerArgs;
+			int editorSocket = 88888;
+			int processorSocket = editorSocket + 1;
 
 			var messageData = SerialzeWorkloadRequest(args);
+
+			IPEndPoint ipEndpoint = new IPEndPoint(IPAddress.Loopback, editorSocket);
+			using (var udpClient = new UdpClient(ipEndpoint))
+			{
+
+			}
 
 			args.Complete = true;
 		}
