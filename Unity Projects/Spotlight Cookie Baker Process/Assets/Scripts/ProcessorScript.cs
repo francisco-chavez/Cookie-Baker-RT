@@ -72,24 +72,32 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 				Application.Quit(-2);
 			if (!portOutFound)
 				Application.Quit(-3);
-
-			// Port numbers found, better get things up and running.
-			_runUDPLoop			= true;
-			_incommingMessages	= new ConcurrentQueue<Message>();
-			_outgoingMessages	= new ConcurrentQueue<byte[]>();
 		}
 
 		private void Start()
 		{
-			_udpBackgoundMessenger = new BackgroundWorker();
-			_udpBackgoundMessenger.DoWork += UDP_BackgroundThread;
+			_runUDPLoop				= true;
+			_incommingMessages		= new ConcurrentQueue<Message>();
+			_outgoingMessages		= new ConcurrentQueue<byte[]>();
+			_udpBackgoundMessenger	= new BackgroundWorker();
 
+			_udpBackgoundMessenger.DoWork += UDP_BackgroundThread;
 			_udpBackgoundMessenger.RunWorkerAsync();
 		}
 
 		private void Update()
 		{
+			while (_incommingMessages.TryDequeue(out Message message))
+			{
+				switch (message.DataType)
+				{
+					case MessageDatum.WorkloadRequest:
+						break;
 
+					case MessageDatum.CancelWorkload:
+						break;
+				}
+			}
 		}
 
 		private void UDP_BackgroundThread(object sender, DoWorkEventArgs e)
@@ -164,5 +172,25 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			builder.Finish(messageOffset.Value);
 			return builder.SizedByteArray();
 		}
+
+		private BakeJob FilloutBakeJob(WorkloadRequest workloadRequest)
+		{
+			throw new System.NotImplementedException();
+		}
+
+		private void ProcessWorkloadRequest(Message message)
+		{
+			var requestRaw = message.Data<WorkloadRequest>();
+			
+			// Pun intended
+			// -FCT
+			if (!requestRaw.HasValue)
+				return;
+
+			var bakeJob = FilloutBakeJob(requestRaw.Value);
+
+			throw new System.NotImplementedException();
+		}
+
 	}
 }
