@@ -1,9 +1,14 @@
 ﻿
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
+
+using FCT.CookieBakerRT.IPC_DataFormat;
+using FlatBuffers;
 
 using UnityEngine;
 
@@ -16,12 +21,15 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 		#region Attributes
 
-		public	ComputeShader		ComputeShader;
+		public	ComputeShader				ComputeShader;
 
-		private int					_incommingMessagePortNumber;
-		private int					_outgoingMessagePortNumber;
-		private BackgroundWorker	_udpBackgoundMessenger;
-		private bool				_runUDPLoop					= false;
+		private int							_incommingMessagePortNumber;
+		private int							_outgoingMessagePortNumber;
+		private BackgroundWorker			_udpBackgoundMessenger;
+		private bool						_runUDPLoop						= false;
+
+		private ConcurrentQueue<Message>	_incommingMessages;
+		private ConcurrentQueue<byte[]>		_outgoingMessages;
 
 		#endregion
 
@@ -34,7 +42,7 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			var portOutFound	= false;
 			var argumentCount	= commandLineArgs.Length;
 
-
+			// Check to see if the parent process sent us the port numbers needed for IPC.
 			for (int i = 0; i < argumentCount - 1; i++)
 			{
 				if (commandLineArgs[i] == "-inputPort")
@@ -57,6 +65,7 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 				}
 			}
 
+			// We're missing at least one port number
 			if (!portInFound && !portOutFound)
 				Application.Quit(-1);
 			if (!portInFound)
@@ -64,7 +73,10 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			if (!portOutFound)
 				Application.Quit(-3);
 
-			_runUDPLoop = true;
+			// Port numbers found, better get things up and running.
+			_runUDPLoop			= true;
+			_incommingMessages	= new ConcurrentQueue<Message>();
+			_outgoingMessages	= new ConcurrentQueue<byte[]>();
 		}
 
 		private void Start()
@@ -75,6 +87,10 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			_udpBackgoundMessenger.RunWorkerAsync();
 		}
 
+		private void Update()
+		{
+		}
+
 		private void UDP_BackgroundThread(object sender, DoWorkEventArgs e)
 		{
 			var endpointToListenTo	= new IPEndPoint(IPAddress.Any, _incommingMessagePortNumber);
@@ -83,13 +99,52 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			// I know they have to call it something, and I'll admit that the options are limited, but did they 
 			// have to call it UdpClient when it can run as both a udp-client and a udp-server?
 			// -FCT
-			using (var udp = new UdpClient(endpointToListenTo))
+			using (var udpListen	= new UdpClient(endpointToListenTo) { DontFragment = true, ExclusiveAddressUse = false })
+			using (var udpSend		= new UdpClient() { DontFragment = true, ExclusiveAddressUse = false })
 			{
-
+				// Let the parent process know that we're up and running.
 				var byteArray = CreateUpAndRunningMessage();
+				udpSend.Send(byteArray, byteArray.Length, endpointOutgoing);
 
-				udp.Close();
-			}
+				// Enter our normal comunications loop
+				while (_runUDPLoop)
+				{
+					// Grab valid incoming messages and send them to the main thread for processing.
+					while (udpListen.Available > 0)
+					{
+						byteArray	= udpListen.Receive(ref endpointToListenTo);
+						var buffer	= new ByteBuffer(byteArray);
+						var message = Message.GetRootAsMessage(buffer);
+
+						switch (message.DataType)
+						{
+							case MessageDatum.CancelWorkload:
+							case MessageDatum.WorkloadRequest:
+								_incommingMessages.Enqueue(message);
+								break;
+
+							// If you are getting any of these, then something messed up is going on with the parent process.
+							case MessageDatum.NONE:
+							case MessageDatum.ProgressUpdate:
+							case MessageDatum.WorkloadComplete:
+							case MessageDatum.WorkloadReceived:
+								break;
+						}
+					}
+
+					// Grab outgoing messages from the main thread and send them to the parent processes.
+					while (_outgoingMessages.TryDequeue(out byte[] messageOut))
+					{
+						udpSend.Send(messageOut, messageOut.Length, endpointOutgoing);
+					}
+
+					// Sleep for a bit to stop this thread from taking up too much resources.
+					Thread.Sleep(3);
+				}	// Exit udp loop
+
+				udpListen.Close();
+				udpSend.Close();
+			}	// Dispose of UdpClients
 		}
 
 		private byte[] CreateUpAndRunningMessage()
