@@ -89,6 +89,7 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 		private void Update()
 		{
+
 		}
 
 		private void UDP_BackgroundThread(object sender, DoWorkEventArgs e)
@@ -149,7 +150,19 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 		private byte[] CreateUpAndRunningMessage()
 		{
-			throw new System.NotImplementedException();
+			var builder = new FlatBufferBuilder(16);
+
+			UpAndRunning.StartUpAndRunning(builder);
+			var upAndRunningOffset = UpAndRunning.EndUpAndRunning(builder);
+
+			Message.StartMessage(builder);
+			Message.AddData(builder, upAndRunningOffset.Value);
+			Message.AddDataType(builder, MessageDatum.UpAndRunning);
+
+			var messageOffset = Message.EndMessage(builder);
+
+			builder.Finish(messageOffset.Value);
+			return builder.SizedByteArray();
 		}
 	}
 }
