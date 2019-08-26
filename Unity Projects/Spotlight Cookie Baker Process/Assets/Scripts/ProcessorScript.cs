@@ -31,6 +31,10 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 		private ConcurrentQueue<Message>	_incommingMessages;
 		private ConcurrentQueue<byte[]>		_outgoingMessages;
 
+		private BakeJob						_bakeJob						= null;
+		private Queue<BakeJob>				_jobs;
+		private int							_updatesSinceLastGC				= 0;
+
 		#endregion
 
 
@@ -80,6 +84,7 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			_incommingMessages		= new ConcurrentQueue<Message>();
 			_outgoingMessages		= new ConcurrentQueue<byte[]>();
 			_udpBackgoundMessenger	= new BackgroundWorker();
+			_jobs					= new Queue<BakeJob>();
 
 			_udpBackgoundMessenger.DoWork += UDP_BackgroundThread;
 			_udpBackgoundMessenger.RunWorkerAsync();
@@ -92,11 +97,39 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 				switch (message.DataType)
 				{
 					case MessageDatum.WorkloadRequest:
+						ProcessWorkloadRequest(message);
 						break;
 
 					case MessageDatum.CancelWorkload:
+						ProcessCancelWorkload(message);
 						break;
 				}
+			}
+
+			// One thing I learned when dealing with systems with lots of memory is that you should run the garbage 
+			// collector from time to time when you are generating lots of items on the heap. The reason for this
+			// is because there's a chance that the GC won't runt until you fill up on lots of un-recovered memory; 
+			// in a system with lots of memory, reclaiming a large heap can cause the process to pause long enough 
+			// for it to crash. I will repeat, reclaiming a large enough heap can cause the process to pause long 
+			// enough to cause it to crash. I think it has something to do with some Graphics APIs throwing up an 
+			// error when they drop below a certain FPS. It might also be a Windows thing, I know for a fact that
+			// it doesn't like it when a window's FPS drops well below 1. I learned this the hard way when I was 
+			// doing image capturing for some NN training on some server-hardware. The image capute was done on 
+			// server grade hardware; I've don't now which hardware the training was done on because I wasn't 
+			// working that part of the project. Anyways, each frame created a new byte array that would get saved 
+			// to disk, and those arrays just built-up inside the heap. A few hours in, the memory use had grown 
+			// well over 100 GB and the GC was triggered. That GC clean-up took so long that process crashed. So, I 
+			// throw in a CG call every couple of frames and ran the process for an 8 hour batch at a higher 
+			// resoultion than needed, to really make sure the problem was fixed. Now you know why I'm running a
+			// call to the GC every 'X' frames on a process that's expected to create quite a few byte arrays that
+			// aren't all needed at once. And, no, I wasn't able to put those byte arrays on inside of a memory
+			// pool, the item that generates them isn't part of the code that I wrote.
+			// -FCT
+			_updatesSinceLastGC++;
+			if (_updatesSinceLastGC % 10 == 0)
+			{
+				System.GC.Collect();
+				_updatesSinceLastGC = 0;
 			}
 		}
 
@@ -277,6 +310,11 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 			var bakeJob = FilloutBakeJob(requestRaw);
 
+			_jobs.Enqueue(bakeJob);
+		}
+
+		private void ProcessCancelWorkload(Message message)
+		{
 			throw new System.NotImplementedException();
 		}
 
