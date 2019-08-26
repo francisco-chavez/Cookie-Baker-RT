@@ -6,8 +6,7 @@ namespace FCT.CookieBakerRT.IPC_DataFormat;
 
 table WorkloadRequest {
 
-	WorklodID:int;
-	ReturnSocket:string;
+	WorkloadID:int;
 	
 	SampleCount:int;
 	MinRange:float;
