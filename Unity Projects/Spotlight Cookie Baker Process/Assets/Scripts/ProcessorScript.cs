@@ -196,7 +196,7 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			var bakeJob = new BakeJob();
 
 			bakeJob.BounceCount				= workloadRequest.BounceCount;
-			bakeJob.JobID					= workloadRequest.WorklodID;
+			bakeJob.JobID					= workloadRequest.WorkloadID;
 
 			var vec3 = workloadRequest.LightSourceForwardDir.Value;
 			bakeJob.LightSourceForward		= new Vector4(vec3.X, vec3.Y, vec3.Z, 0.0f);
@@ -273,7 +273,7 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			var requestRaw = requestRawNullable.Value;
 
 			// Send a message back to the parent process to let it know that we have received this work request.
-			_outgoingMessages.Enqueue(CreateWorkRequestRecievedMessage(requestRaw.WorklodID));
+			_outgoingMessages.Enqueue(CreateWorkRequestRecievedMessage(requestRaw.WorkloadID));
 
 			var bakeJob = FilloutBakeJob(requestRaw);
 
