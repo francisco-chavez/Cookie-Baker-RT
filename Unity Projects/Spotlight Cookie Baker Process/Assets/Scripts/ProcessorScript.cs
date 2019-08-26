@@ -173,21 +173,109 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			return builder.SizedByteArray();
 		}
 
+		private byte[] CreateWorkRequestRecievedMessage(int workloadID)
+		{
+			var builder = new FlatBufferBuilder(16);
+
+			WorkloadReceived.StartWorkloadReceived(builder);
+			WorkloadReceived.AddWorkloadID(builder, workloadID);
+			var msgDataOffset = WorkloadReceived.EndWorkloadReceived(builder);
+
+			Message.StartMessage(builder);
+			Message.AddData(builder, msgDataOffset.Value);
+			Message.AddDataType(builder, MessageDatum.WorkloadReceived);
+
+			var msgOffset = Message.EndMessage(builder);
+
+			builder.Finish(msgOffset.Value);
+			return builder.SizedByteArray();
+		}
+
 		private BakeJob FilloutBakeJob(WorkloadRequest workloadRequest)
 		{
-			throw new System.NotImplementedException();
+			var bakeJob = new BakeJob();
+
+			bakeJob.BounceCount				= workloadRequest.BounceCount;
+			bakeJob.JobID					= workloadRequest.WorklodID;
+
+			var vec3 = workloadRequest.LightSourceForwardDir.Value;
+			bakeJob.LightSourceForward		= new Vector4(vec3.X, vec3.Y, vec3.Z, 0.0f);
+
+			vec3 = workloadRequest.LightSourceUpwardDir.Value;
+			bakeJob.LightSourceUpward		= new Vector4(vec3.X, vec3.Y, vec3.Z, 0.0f);
+
+			var vector3 = Vector3.Cross(bakeJob.LightSourceUpward, bakeJob.LightSourceForward);
+			bakeJob.LightSourceRightward	= new Vector4(vector3.x, vector3.y, vector3.z, 0.0f);
+
+			vec3 = workloadRequest.LightSourcePosition.Value;
+			bakeJob.LightSourcePosition		= new Vector4(vec3.X, vec3.Y, vec3.Z, 1.0f);
+
+			bakeJob.MaxRange				= workloadRequest.MaxRange;
+			bakeJob.MinRange				= workloadRequest.MinRange;
+
+			bakeJob.Resolution				= workloadRequest.Resolution;
+			bakeJob.SampleCount				= workloadRequest.SampleCount;
+			bakeJob.ShadowfocusPlane		= workloadRequest.ShadowFocusPlane;
+
+			bakeJob.Indices					= workloadRequest.GetIndicesArray();
+
+			var arraySize = workloadRequest.VerticesLength;
+			bakeJob.Vertices = new Vector3[arraySize];
+			for (int i = 0; i < arraySize; i++)
+			{
+				vec3 = workloadRequest.Vertices(i).Value;
+				bakeJob.Vertices[i] = new Vector3(vec3.X, vec3.Y, vec3.Z);
+			}
+
+			arraySize = workloadRequest.ObjectDataLength;
+			bakeJob.ObjectData = new ObjectMeshDatum[arraySize];
+			for (int i = 0; i < arraySize; i++)
+			{
+				var ipc = workloadRequest.ObjectData(i).Value;
+
+				var objectDatum = new ObjectMeshDatum();
+
+				objectDatum.IndicesCount = ipc.IndicesCount;
+				objectDatum.IndicesOffset = ipc.IndicesOffset;
+				objectDatum.VerticesOffset = ipc.VerticesOffset;
+
+				objectDatum.BoundingBox = new AABB_Bounds();
+
+				var ipcBounds = ipc.Bounds;
+				vec3 = ipcBounds.Center;
+				objectDatum.BoundingBox.Center = new Vector3(vec3.X, vec3.Y, vec3.Z);
+				vec3 = ipcBounds.Extent;
+				objectDatum.BoundingBox.Extent = new Vector3(vec3.X, vec3.Y, vec3.Z);
+
+				var ipcLTWM = ipc.LocalToWorldMatrix;
+				objectDatum.LocalToWorldMatrix = new UnityEngine.Matrix4x4();
+
+				objectDatum.LocalToWorldMatrix.SetRow(0, new Vector4(ipcLTWM.M00, ipcLTWM.M01, ipcLTWM.M02, ipcLTWM.M03));
+				objectDatum.LocalToWorldMatrix.SetRow(1, new Vector4(ipcLTWM.M10, ipcLTWM.M11, ipcLTWM.M12, ipcLTWM.M13));
+				objectDatum.LocalToWorldMatrix.SetRow(2, new Vector4(ipcLTWM.M20, ipcLTWM.M21, ipcLTWM.M22, ipcLTWM.M23));
+				objectDatum.LocalToWorldMatrix.SetRow(3, new Vector4(ipcLTWM.M30, ipcLTWM.M31, ipcLTWM.M32, ipcLTWM.M33));
+
+				bakeJob.ObjectData[i] = objectDatum;
+			}
+
+			return bakeJob;
 		}
 
 		private void ProcessWorkloadRequest(Message message)
 		{
-			var requestRaw = message.Data<WorkloadRequest>();
+			var requestRawNullable = message.Data<WorkloadRequest>();
 			
 			// Pun intended
 			// -FCT
-			if (!requestRaw.HasValue)
+			if (!requestRawNullable.HasValue)
 				return;
 
-			var bakeJob = FilloutBakeJob(requestRaw.Value);
+			var requestRaw = requestRawNullable.Value;
+
+			// Send a message back to the parent process to let it know that we have received this work request.
+			_outgoingMessages.Enqueue(CreateWorkRequestRecievedMessage(requestRaw.WorklodID));
+
+			var bakeJob = FilloutBakeJob(requestRaw);
 
 			throw new System.NotImplementedException();
 		}
