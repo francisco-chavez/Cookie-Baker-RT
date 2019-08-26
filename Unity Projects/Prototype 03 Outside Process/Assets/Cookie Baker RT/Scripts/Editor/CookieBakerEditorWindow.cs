@@ -616,7 +616,7 @@ namespace FCT.CookieBakerP03
 			WorkloadRequest.AddMinRange(builder, s_innerRadius);
 			WorkloadRequest.AddSampleCount(builder, s_sampleCount);
 			WorkloadRequest.AddShadowFocusPlane(builder, s_shadowFocusDistance);
-			WorkloadRequest.AddWorklodID(builder, 25);
+			WorkloadRequest.AddWorkloadID(builder, 25);
 			WorkloadRequest.AddResolution(builder, s_resolutionOptions[s_selectedCookieResolution]);
 
 			WorkloadRequest.AddIndices(builder, indicesVectorOffset);

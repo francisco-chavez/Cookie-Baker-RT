@@ -18,55 +18,47 @@ public struct WorkloadRequest : IFlatbufferObject
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public WorkloadRequest __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
-  public int WorklodID { get { int o = __p.__offset(4); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
-  public string ReturnSocket { get { int o = __p.__offset(6); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+  public int WorkloadID { get { int o = __p.__offset(4); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
+  public int SampleCount { get { int o = __p.__offset(6); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
+  public float MinRange { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetFloat(o + __p.bb_pos) : (float)0.0f; } }
+  public float MaxRange { get { int o = __p.__offset(10); return o != 0 ? __p.bb.GetFloat(o + __p.bb_pos) : (float)0.0f; } }
+  public float ShadowFocusPlane { get { int o = __p.__offset(12); return o != 0 ? __p.bb.GetFloat(o + __p.bb_pos) : (float)0.0f; } }
+  public int Resolution { get { int o = __p.__offset(14); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
+  public int BounceCount { get { int o = __p.__offset(16); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
+  public FCT.CookieBakerRT.IPC_DataFormat.Vec3? LightSourcePosition { get { int o = __p.__offset(18); return o != 0 ? (FCT.CookieBakerRT.IPC_DataFormat.Vec3?)(new FCT.CookieBakerRT.IPC_DataFormat.Vec3()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public FCT.CookieBakerRT.IPC_DataFormat.Vec3? LightSourceForwardDir { get { int o = __p.__offset(20); return o != 0 ? (FCT.CookieBakerRT.IPC_DataFormat.Vec3?)(new FCT.CookieBakerRT.IPC_DataFormat.Vec3()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public FCT.CookieBakerRT.IPC_DataFormat.Vec3? LightSourceUpwardDir { get { int o = __p.__offset(22); return o != 0 ? (FCT.CookieBakerRT.IPC_DataFormat.Vec3?)(new FCT.CookieBakerRT.IPC_DataFormat.Vec3()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public FCT.CookieBakerRT.IPC_DataFormat.MeshObject? ObjectData(int j) { int o = __p.__offset(24); return o != 0 ? (FCT.CookieBakerRT.IPC_DataFormat.MeshObject?)(new FCT.CookieBakerRT.IPC_DataFormat.MeshObject()).__assign(__p.__vector(o) + j * 100, __p.bb) : null; }
+  public int ObjectDataLength { get { int o = __p.__offset(24); return o != 0 ? __p.__vector_len(o) : 0; } }
+  public int Indices(int j) { int o = __p.__offset(26); return o != 0 ? __p.bb.GetInt(__p.__vector(o) + j * 4) : (int)0; }
+  public int IndicesLength { get { int o = __p.__offset(26); return o != 0 ? __p.__vector_len(o) : 0; } }
 #if ENABLE_SPAN_T
-  public Span<byte> GetReturnSocketBytes() { return __p.__vector_as_span(6); }
+  public Span<byte> GetIndicesBytes() { return __p.__vector_as_span(26); }
 #else
-  public ArraySegment<byte>? GetReturnSocketBytes() { return __p.__vector_as_arraysegment(6); }
+  public ArraySegment<byte>? GetIndicesBytes() { return __p.__vector_as_arraysegment(26); }
 #endif
-  public byte[] GetReturnSocketArray() { return __p.__vector_as_array<byte>(6); }
-  public int SampleCount { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
-  public float MinRange { get { int o = __p.__offset(10); return o != 0 ? __p.bb.GetFloat(o + __p.bb_pos) : (float)0.0f; } }
-  public float MaxRange { get { int o = __p.__offset(12); return o != 0 ? __p.bb.GetFloat(o + __p.bb_pos) : (float)0.0f; } }
-  public float ShadowFocusPlane { get { int o = __p.__offset(14); return o != 0 ? __p.bb.GetFloat(o + __p.bb_pos) : (float)0.0f; } }
-  public int Resolution { get { int o = __p.__offset(16); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
-  public int BounceCount { get { int o = __p.__offset(18); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
-  public FCT.CookieBakerRT.IPC_DataFormat.Vec3? LightSourcePosition { get { int o = __p.__offset(20); return o != 0 ? (FCT.CookieBakerRT.IPC_DataFormat.Vec3?)(new FCT.CookieBakerRT.IPC_DataFormat.Vec3()).__assign(o + __p.bb_pos, __p.bb) : null; } }
-  public FCT.CookieBakerRT.IPC_DataFormat.Vec3? LightSourceForwardDir { get { int o = __p.__offset(22); return o != 0 ? (FCT.CookieBakerRT.IPC_DataFormat.Vec3?)(new FCT.CookieBakerRT.IPC_DataFormat.Vec3()).__assign(o + __p.bb_pos, __p.bb) : null; } }
-  public FCT.CookieBakerRT.IPC_DataFormat.Vec3? LightSourceUpwardDir { get { int o = __p.__offset(24); return o != 0 ? (FCT.CookieBakerRT.IPC_DataFormat.Vec3?)(new FCT.CookieBakerRT.IPC_DataFormat.Vec3()).__assign(o + __p.bb_pos, __p.bb) : null; } }
-  public FCT.CookieBakerRT.IPC_DataFormat.MeshObject? ObjectData(int j) { int o = __p.__offset(26); return o != 0 ? (FCT.CookieBakerRT.IPC_DataFormat.MeshObject?)(new FCT.CookieBakerRT.IPC_DataFormat.MeshObject()).__assign(__p.__vector(o) + j * 100, __p.bb) : null; }
-  public int ObjectDataLength { get { int o = __p.__offset(26); return o != 0 ? __p.__vector_len(o) : 0; } }
-  public int Indices(int j) { int o = __p.__offset(28); return o != 0 ? __p.bb.GetInt(__p.__vector(o) + j * 4) : (int)0; }
-  public int IndicesLength { get { int o = __p.__offset(28); return o != 0 ? __p.__vector_len(o) : 0; } }
-#if ENABLE_SPAN_T
-  public Span<byte> GetIndicesBytes() { return __p.__vector_as_span(28); }
-#else
-  public ArraySegment<byte>? GetIndicesBytes() { return __p.__vector_as_arraysegment(28); }
-#endif
-  public int[] GetIndicesArray() { return __p.__vector_as_array<int>(28); }
-  public FCT.CookieBakerRT.IPC_DataFormat.Vec3? Vertices(int j) { int o = __p.__offset(30); return o != 0 ? (FCT.CookieBakerRT.IPC_DataFormat.Vec3?)(new FCT.CookieBakerRT.IPC_DataFormat.Vec3()).__assign(__p.__vector(o) + j * 12, __p.bb) : null; }
-  public int VerticesLength { get { int o = __p.__offset(30); return o != 0 ? __p.__vector_len(o) : 0; } }
+  public int[] GetIndicesArray() { return __p.__vector_as_array<int>(26); }
+  public FCT.CookieBakerRT.IPC_DataFormat.Vec3? Vertices(int j) { int o = __p.__offset(28); return o != 0 ? (FCT.CookieBakerRT.IPC_DataFormat.Vec3?)(new FCT.CookieBakerRT.IPC_DataFormat.Vec3()).__assign(__p.__vector(o) + j * 12, __p.bb) : null; }
+  public int VerticesLength { get { int o = __p.__offset(28); return o != 0 ? __p.__vector_len(o) : 0; } }
 
-  public static void StartWorkloadRequest(FlatBufferBuilder builder) { builder.StartTable(14); }
-  public static void AddWorklodID(FlatBufferBuilder builder, int WorklodID) { builder.AddInt(0, WorklodID, 0); }
-  public static void AddReturnSocket(FlatBufferBuilder builder, StringOffset ReturnSocketOffset) { builder.AddOffset(1, ReturnSocketOffset.Value, 0); }
-  public static void AddSampleCount(FlatBufferBuilder builder, int SampleCount) { builder.AddInt(2, SampleCount, 0); }
-  public static void AddMinRange(FlatBufferBuilder builder, float MinRange) { builder.AddFloat(3, MinRange, 0.0f); }
-  public static void AddMaxRange(FlatBufferBuilder builder, float MaxRange) { builder.AddFloat(4, MaxRange, 0.0f); }
-  public static void AddShadowFocusPlane(FlatBufferBuilder builder, float ShadowFocusPlane) { builder.AddFloat(5, ShadowFocusPlane, 0.0f); }
-  public static void AddResolution(FlatBufferBuilder builder, int Resolution) { builder.AddInt(6, Resolution, 0); }
-  public static void AddBounceCount(FlatBufferBuilder builder, int BounceCount) { builder.AddInt(7, BounceCount, 0); }
-  public static void AddLightSourcePosition(FlatBufferBuilder builder, Offset<FCT.CookieBakerRT.IPC_DataFormat.Vec3> LightSourcePositionOffset) { builder.AddStruct(8, LightSourcePositionOffset.Value, 0); }
-  public static void AddLightSourceForwardDir(FlatBufferBuilder builder, Offset<FCT.CookieBakerRT.IPC_DataFormat.Vec3> LightSourceForwardDirOffset) { builder.AddStruct(9, LightSourceForwardDirOffset.Value, 0); }
-  public static void AddLightSourceUpwardDir(FlatBufferBuilder builder, Offset<FCT.CookieBakerRT.IPC_DataFormat.Vec3> LightSourceUpwardDirOffset) { builder.AddStruct(10, LightSourceUpwardDirOffset.Value, 0); }
-  public static void AddObjectData(FlatBufferBuilder builder, VectorOffset ObjectDataOffset) { builder.AddOffset(11, ObjectDataOffset.Value, 0); }
+  public static void StartWorkloadRequest(FlatBufferBuilder builder) { builder.StartTable(13); }
+  public static void AddWorkloadID(FlatBufferBuilder builder, int WorkloadID) { builder.AddInt(0, WorkloadID, 0); }
+  public static void AddSampleCount(FlatBufferBuilder builder, int SampleCount) { builder.AddInt(1, SampleCount, 0); }
+  public static void AddMinRange(FlatBufferBuilder builder, float MinRange) { builder.AddFloat(2, MinRange, 0.0f); }
+  public static void AddMaxRange(FlatBufferBuilder builder, float MaxRange) { builder.AddFloat(3, MaxRange, 0.0f); }
+  public static void AddShadowFocusPlane(FlatBufferBuilder builder, float ShadowFocusPlane) { builder.AddFloat(4, ShadowFocusPlane, 0.0f); }
+  public static void AddResolution(FlatBufferBuilder builder, int Resolution) { builder.AddInt(5, Resolution, 0); }
+  public static void AddBounceCount(FlatBufferBuilder builder, int BounceCount) { builder.AddInt(6, BounceCount, 0); }
+  public static void AddLightSourcePosition(FlatBufferBuilder builder, Offset<FCT.CookieBakerRT.IPC_DataFormat.Vec3> LightSourcePositionOffset) { builder.AddStruct(7, LightSourcePositionOffset.Value, 0); }
+  public static void AddLightSourceForwardDir(FlatBufferBuilder builder, Offset<FCT.CookieBakerRT.IPC_DataFormat.Vec3> LightSourceForwardDirOffset) { builder.AddStruct(8, LightSourceForwardDirOffset.Value, 0); }
+  public static void AddLightSourceUpwardDir(FlatBufferBuilder builder, Offset<FCT.CookieBakerRT.IPC_DataFormat.Vec3> LightSourceUpwardDirOffset) { builder.AddStruct(9, LightSourceUpwardDirOffset.Value, 0); }
+  public static void AddObjectData(FlatBufferBuilder builder, VectorOffset ObjectDataOffset) { builder.AddOffset(10, ObjectDataOffset.Value, 0); }
   public static void StartObjectDataVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(100, numElems, 4); }
-  public static void AddIndices(FlatBufferBuilder builder, VectorOffset IndicesOffset) { builder.AddOffset(12, IndicesOffset.Value, 0); }
+  public static void AddIndices(FlatBufferBuilder builder, VectorOffset IndicesOffset) { builder.AddOffset(11, IndicesOffset.Value, 0); }
   public static VectorOffset CreateIndicesVector(FlatBufferBuilder builder, int[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddInt(data[i]); return builder.EndVector(); }
   public static VectorOffset CreateIndicesVectorBlock(FlatBufferBuilder builder, int[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
   public static void StartIndicesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
-  public static void AddVertices(FlatBufferBuilder builder, VectorOffset VerticesOffset) { builder.AddOffset(13, VerticesOffset.Value, 0); }
+  public static void AddVertices(FlatBufferBuilder builder, VectorOffset VerticesOffset) { builder.AddOffset(12, VerticesOffset.Value, 0); }
   public static void StartVerticesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(12, numElems, 4); }
   public static Offset<FCT.CookieBakerRT.IPC_DataFormat.WorkloadRequest> EndWorkloadRequest(FlatBufferBuilder builder) {
     int o = builder.EndTable();
