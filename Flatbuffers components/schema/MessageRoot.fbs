@@ -1,7 +1,7 @@
 
-include "MyStructs.fbs";
 include "CancelWorkloadMsg.fbs";
 include "ProgressUpdateMsg.fbs";
+include "ShutdownRequestMsg.fbs";
 include "UpAndRunningMsg.fbs";
 include "WorkloadCompleteMsg.fbs";
 include "WorkloadReceivedMsg.fbs";
@@ -16,7 +16,8 @@ union MessageDatum {
 	WorkloadReceived,
 	ProgressUpdate, 
 	WorkloadComplete,
-	CancelWorkload
+	CancelWorkload,
+	ShutdownMessage
 }
 
 table Message {

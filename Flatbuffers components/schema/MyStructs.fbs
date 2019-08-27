@@ -3,9 +3,9 @@ namespace FCT.CookieBakerRT.IPC_DataFormat;
 
 
 struct Vec3 {
-	x:float;
-	y:float;
-	z:float;
+	X:float;
+	Y:float;
+	Z:float;
 }
 
 struct AABB_Bounds {
