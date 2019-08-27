@@ -14,6 +14,7 @@ public enum MessageDatum : byte
   ProgressUpdate = 4,
   WorkloadComplete = 5,
   CancelWorkload = 6,
+  ShutdownMessage = 7,
 };
 
 
