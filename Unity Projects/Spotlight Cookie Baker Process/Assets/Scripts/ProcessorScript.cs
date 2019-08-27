@@ -32,11 +32,12 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 		private ConcurrentQueue<Message>	_incommingMessages;
 		private ConcurrentQueue<byte[]>		_outgoingMessages;
 
-		private BakeJob						_currentBakeJob						= null;
+		private BakeJob						_currentBakeJob					= null;
 		private Queue<BakeJob>				_jobs;
 		private HashSet<int>				_jobIDs;
 		private int							_updatesSinceLastGC				= 0;
 		private HashSet<int>				_cancleQueue;
+		private bool						_isShuttingDown					= false;
 
 		#endregion
 
@@ -97,6 +98,14 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 		private void Update()
 		{
+			if (_isShuttingDown)
+			{
+				if (_udpBackgoundMessenger.IsBusy)
+					return;
+				else
+					Application.Quit(0);
+			}
+
 			// Process any new messages that came in since the last update
 			ProcessNewMessages();
 
@@ -176,6 +185,22 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 					case MessageDatum.CancelWorkload:
 						ProcessCancelWorkload(message);
 						break;
+
+					case MessageDatum.ShutdownMessage:
+						if (_currentBakeJob != null)
+							_currentBakeJob.CancelJob();
+
+						this._cancleQueue.Clear();
+						this._currentBakeJob = null;
+
+						while (_incommingMessages.Count > 0)
+							_incommingMessages.TryDequeue(out Message messageT);
+
+						_jobIDs.Clear();
+						_jobs.Clear();
+						_isShuttingDown = true;
+
+						break;
 				}
 			}
 		}
@@ -221,6 +246,11 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 						{
 							case MessageDatum.CancelWorkload:
 							case MessageDatum.WorkloadRequest:
+								_incommingMessages.Enqueue(message);
+								break;
+
+							case MessageDatum.ShutdownMessage:
+								_runUDPLoop = false;
 								_incommingMessages.Enqueue(message);
 								break;
 
