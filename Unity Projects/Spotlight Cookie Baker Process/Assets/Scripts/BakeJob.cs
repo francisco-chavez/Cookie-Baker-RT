@@ -32,5 +32,46 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 		#endregion
 
+
+		public bool JobComplete { get; private set; }
+
+
+		public BakeJob()
+		{
+			SampleCount				= -1;
+			MinRange				=  0.0f;
+			MaxRange				=  0.0f;
+			ShadowfocusPlane		=  0.0f;
+			Resolution				= -1;
+			BounceCount				= -1;
+
+			LightSourceForward		= Vector4.zero;
+			LightSourcePosition		= Vector4.zero;
+			LightSourceRightward	= Vector4.zero;
+			LightSourceUpward		= Vector4.zero;
+
+			ObjectData				= null;
+			Vertices				= null;
+			Indices					= null;
+
+			JobComplete				= false;
+		}
+
+
+		public void CancelJob()
+		{
+
+		}
+
+		public void StartJob()
+		{
+
+		}
+
+		public void Update()
+		{
+
+		}
+
 	}
 }

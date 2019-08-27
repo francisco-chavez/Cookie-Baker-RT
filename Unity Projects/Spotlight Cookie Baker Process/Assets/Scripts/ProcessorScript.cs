@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.ComponentModel;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -31,9 +32,11 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 		private ConcurrentQueue<Message>	_incommingMessages;
 		private ConcurrentQueue<byte[]>		_outgoingMessages;
 
-		private BakeJob						_bakeJob						= null;
+		private BakeJob						_currentBakeJob						= null;
 		private Queue<BakeJob>				_jobs;
+		private HashSet<int>				_jobIDs;
 		private int							_updatesSinceLastGC				= 0;
+		private HashSet<int>				_cancleQueue;
 
 		#endregion
 
@@ -85,6 +88,8 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			_outgoingMessages		= new ConcurrentQueue<byte[]>();
 			_udpBackgoundMessenger	= new BackgroundWorker();
 			_jobs					= new Queue<BakeJob>();
+			_jobIDs					= new HashSet<int>();
+			_cancleQueue			= new HashSet<int>();
 
 			_udpBackgoundMessenger.DoWork += UDP_BackgroundThread;
 			_udpBackgoundMessenger.RunWorkerAsync();
@@ -92,17 +97,42 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 		private void Update()
 		{
-			while (_incommingMessages.TryDequeue(out Message message))
-			{
-				switch (message.DataType)
-				{
-					case MessageDatum.WorkloadRequest:
-						ProcessWorkloadRequest(message);
-						break;
+			// Process any new messages that came in since the last update
+			ProcessNewMessages();
 
-					case MessageDatum.CancelWorkload:
-						ProcessCancelWorkload(message);
-						break;
+			// Remove any jobs that have been canceled from the job queue.
+			RemoveCanceledJobsFromQueue();
+
+			// If there's a job currently running and it has been canceled, then cancel it
+			if (_currentBakeJob != null)
+				if (_cancleQueue.Contains(_currentBakeJob.JobID))
+				{
+					_currentBakeJob.CancelJob();
+					_currentBakeJob = null;
+				}
+
+			///	
+			/// Note: The if/else-if statement is there to stop me from starting a new job and running it's first update 
+			///		  within the same frame. Other than that, there is no reason for using an if/else-if. I could use two
+			///		  if states and run a job's first update in the same frame as that job's start() call.
+			/// 
+			// If there are no jobs running, and we have jobs queued up, then start the next job in the queue
+			if (_currentBakeJob == null && _jobs.Count > 0)
+			{
+				_currentBakeJob = _jobs.Dequeue();
+				_currentBakeJob.StartJob();
+			}
+			// If there's a job running
+			else if (_currentBakeJob != null)
+			{
+				// If the job is complete
+				if (_currentBakeJob.JobComplete)
+				{
+
+				}
+				else
+				{
+					_currentBakeJob.Update();
 				}
 			}
 
@@ -131,6 +161,35 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 				System.GC.Collect();
 				_updatesSinceLastGC = 0;
 			}
+		}
+
+		private void ProcessNewMessages()
+		{
+			while (_incommingMessages.TryDequeue(out Message message))
+			{
+				switch (message.DataType)
+				{
+					case MessageDatum.WorkloadRequest:
+						ProcessWorkloadRequest(message);
+						break;
+
+					case MessageDatum.CancelWorkload:
+						ProcessCancelWorkload(message);
+						break;
+				}
+			}
+		}
+
+		private void RemoveCanceledJobsFromQueue()
+		{
+			var newJobQueue = from j in _jobs
+							  where !_cancleQueue.Contains(j.JobID)
+							  select j;
+
+			foreach (var jID in _cancleQueue)
+				_jobIDs.Remove(jID);
+
+			_jobs = new Queue<BakeJob>(newJobQueue);
 		}
 
 		private void UDP_BackgroundThread(object sender, DoWorkEventArgs e)
@@ -307,15 +366,27 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 			// Send a message back to the parent process to let it know that we have received this work request.
 			_outgoingMessages.Enqueue(CreateWorkRequestRecievedMessage(requestRaw.WorkloadID));
+			if (_jobIDs.Contains(requestRaw.WorkloadID))
+				return;
 
 			var bakeJob = FilloutBakeJob(requestRaw);
-
+			_jobIDs.Add(bakeJob.JobID);
 			_jobs.Enqueue(bakeJob);
 		}
 
 		private void ProcessCancelWorkload(Message message)
 		{
-			throw new System.NotImplementedException();
+			var rawMessageData = message.Data<CancelWorkload>();
+			if (!rawMessageData.HasValue)
+				return;
+
+			var messageData = rawMessageData.Value;
+			var jobID = messageData.WorkloadID;
+
+			if (!_jobIDs.Contains(jobID))
+				return;
+
+			_cancleQueue.Add(jobID);
 		}
 
 	}
