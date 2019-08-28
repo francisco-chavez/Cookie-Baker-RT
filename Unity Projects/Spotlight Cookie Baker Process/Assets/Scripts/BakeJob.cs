@@ -10,30 +10,40 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 	public class BakeJob
 	{
 
+		#region Attributes and Properties
+
 		#region Job Settings
 
 		public int					JobID;
 
-		public int					SampleCount;
-		public float				MinRange;
-		public float				MaxRange;
-		public float				ShadowfocusPlane;
-		public int					Resolution;
-		public int					BounceCount;
+		public	int					SampleCount;
+		public	float				MinRange;
+		public	float				MaxRange;
+		public	float				ShadowfocusPlane;
+		public	int					Resolution;
+		public	int					BounceCount;
 
-		public Vector4				LightSourcePosition;
-		public Vector4				LightSourceForward;
-		public Vector4				LightSourceUpward;
-		public Vector4				LightSourceRightward;
+		public	Vector4				LightSourcePosition;
+		public	Vector4				LightSourceForward;
+		public	Vector4				LightSourceUpward;
+		public	Vector4				LightSourceRightward;
 
-		public ObjectMeshDatum[]	ObjectData;
-		public Vector3[]			Vertices;
-		public int[]				Indices;
+		public	ObjectMeshDatum[]	ObjectData;
+		public	Vector3[]			Vertices;
+		public	int[]				Indices;
+
+		public ComputeShader		ComputeShader;
 
 		#endregion
 
 
-		public bool JobComplete { get; private set; }
+		private RenderTexture		_renderTexture;
+
+
+		public	bool				JobComplete		{ get; private set; }
+		public	int					BakeProgress	{ get; private set; }
+
+		#endregion
 
 
 		public BakeJob()
@@ -65,7 +75,22 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 		public void StartJob()
 		{
-
+			_renderTexture = new RenderTexture(Resolution,						// Width
+											   Resolution,						// Height
+											   0,								// Depth/Stencel Buffer
+											   RenderTextureFormat.ARGBFloat,	// Pixel Type
+											   RenderTextureReadWrite.Linear)	// Gama/Linear Choice
+			{
+				anisoLevel			= 1,
+				antiAliasing		= 1,
+				autoGenerateMips	= false,
+				enableRandomWrite	= true,
+				filterMode			= FilterMode.Point,
+				useMipMap			= false,
+				wrapMode			= TextureWrapMode.Clamp,
+				hideFlags			= HideFlags.DontUnloadUnusedAsset | HideFlags.HideAndDontSave | HideFlags.HideInHierarchy
+			};
+			_renderTexture.Create();
 		}
 
 		public void Update()

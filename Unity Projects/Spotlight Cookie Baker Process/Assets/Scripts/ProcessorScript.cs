@@ -319,6 +319,7 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 			bakeJob.BounceCount				= workloadRequest.BounceCount;
 			bakeJob.JobID					= workloadRequest.WorkloadID;
+			bakeJob.ComputeShader			= ComputeShader;
 
 			var vec3 = workloadRequest.LightSourceForwardDir.Value;
 			bakeJob.LightSourceForward		= new Vector4(vec3.X, vec3.Y, vec3.Z, 0.0f);
