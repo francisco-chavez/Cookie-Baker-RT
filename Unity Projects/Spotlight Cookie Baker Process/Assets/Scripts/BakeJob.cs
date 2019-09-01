@@ -114,7 +114,28 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			};
 			_renderTexture.Create();
 
-			_kernalID = ComputeShader.FindKernel("CSMain");
+
+			_kernalID				= ComputeShader.FindKernel("CSMain");
+
+			_imageResolutionID		= Shader.PropertyToID("_ImageResolution");
+			_indicesID				= Shader.PropertyToID("_Indices");
+			_innerRangeID			= Shader.PropertyToID("_InnerRange");
+			_lightForwardID			= Shader.PropertyToID("_LightForwardDir");
+
+			_lightPositionID		= Shader.PropertyToID("_LightPosition");
+			_lightRightwardID		= Shader.PropertyToID("_LightRightwardDir");
+			_lightUpwardID			= Shader.PropertyToID("_LightUpwardDir");
+			_maxSegmentsID			= Shader.PropertyToID("_MaxSegments");
+
+			_meshDataID				= Shader.PropertyToID("_MeshObjectData");
+			_outerRangeID			= Shader.PropertyToID("_OuterRange");
+			_renderTextureID		= Shader.PropertyToID("_Result");
+			_sampleCountID			= Shader.PropertyToID("_SampleCount");
+
+			_shadowFocusDistanceID	= Shader.PropertyToID("_ShadowFocusDistance");
+			_spotlightThetaID		= Shader.PropertyToID("_SpotLightAngleRad");
+			_uvOffsetID				= Shader.PropertyToID("_UV_Offset");
+			_verticesID				= Shader.PropertyToID("_Vertices");
 		}
 
 		public void Update()
