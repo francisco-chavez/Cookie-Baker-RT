@@ -14,7 +14,7 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 		#region Job Settings
 
-		public int					JobID;
+		public	int					JobID;
 
 		public	int					SampleCount;
 		public	float				MinRange;
@@ -38,6 +38,28 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 
 		private RenderTexture		_renderTexture;
+
+		private int					_kernalID;
+		private int					_uvOffsetID;
+		private int					_sampleCountID;
+		private int					_maxSegmentsID;
+
+		private int					_shadowFocusDistanceID;
+		private int					_imageResolutionID;
+		private int					_lightPositionID;
+		private int					_lightForwardID;
+
+		private int					_lightUpwardID;
+		private int					_lightRightwardID;
+		private int					_spotlightThetaID;
+		private int					_innerRangeID;
+
+		private int					_outerRangeID;
+		private int					_meshDataID;
+		private int					_verticesID;
+		private int					_indicesID;
+
+		private int					_renderTextureID;
 
 
 		public	bool				JobComplete		{ get; private set; }
@@ -91,6 +113,8 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 				hideFlags			= HideFlags.DontUnloadUnusedAsset | HideFlags.HideAndDontSave | HideFlags.HideInHierarchy
 			};
 			_renderTexture.Create();
+
+			_kernalID = ComputeShader.FindKernel("CSMain");
 		}
 
 		public void Update()
