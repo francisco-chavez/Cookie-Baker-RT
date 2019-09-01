@@ -61,6 +61,10 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 		private int					_renderTextureID;
 
+		private ComputeBuffer		_objectDataBuffer;
+		private ComputeBuffer		_vertexDataBuffer;
+		private ComputeBuffer		_indexDataBuffer;
+
 
 		public	bool				JobComplete		{ get; private set; }
 		public	int					BakeProgress	{ get; private set; }
@@ -136,11 +140,19 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			_spotlightThetaID		= Shader.PropertyToID("_SpotLightAngleRad");
 			_uvOffsetID				= Shader.PropertyToID("_UV_Offset");
 			_verticesID				= Shader.PropertyToID("_Vertices");
+
+			_objectDataBuffer		= new ComputeBuffer(ObjectData.Length, 100, ComputeBufferType.Default);
+			_vertexDataBuffer		= new ComputeBuffer(Vertices.Length, 12, ComputeBufferType.Default);
+			_indexDataBuffer		= new ComputeBuffer(Indices.Length, 4, ComputeBufferType.Default);
+
+			_objectDataBuffer.SetData(ObjectData);
+			_vertexDataBuffer.SetData(Vertices);
+			_indexDataBuffer.SetData(Indices);
 		}
 
 		public void Update()
 		{
-
+			ComputeShader.SetBuffer(_kernalID, _meshDataID, _objectDataBuffer);
 		}
 
 	}
