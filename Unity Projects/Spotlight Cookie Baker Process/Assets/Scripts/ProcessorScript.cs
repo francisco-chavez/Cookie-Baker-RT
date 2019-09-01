@@ -172,6 +172,11 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			}
 		}
 
+		public void SendUpdate()
+		{
+			throw new System.NotImplementedException();
+		}
+
 		private void ProcessNewMessages()
 		{
 			while (_incommingMessages.TryDequeue(out Message message))
@@ -278,6 +283,7 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			}	// Dispose of UdpClients
 		}
 
+
 		private byte[] CreateUpAndRunningMessage()
 		{
 			var builder = new FlatBufferBuilder(16);
@@ -317,6 +323,8 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 		{
 			var bakeJob = new BakeJob();
 
+			bakeJob.Processor				= this;
+
 			bakeJob.BounceCount				= workloadRequest.BounceCount;
 			bakeJob.JobID					= workloadRequest.WorkloadID;
 			bakeJob.ComputeShader			= ComputeShader;
@@ -333,12 +341,14 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			vec3 = workloadRequest.LightSourcePosition.Value;
 			bakeJob.LightSourcePosition		= new Vector4(vec3.X, vec3.Y, vec3.Z, 1.0f);
 
+			bakeJob.LightSourceTheta		= workloadRequest.LightSourceThetaRads;
+
 			bakeJob.MaxRange				= workloadRequest.MaxRange;
 			bakeJob.MinRange				= workloadRequest.MinRange;
 
 			bakeJob.Resolution				= workloadRequest.Resolution;
 			bakeJob.SampleCount				= workloadRequest.SampleCount;
-			bakeJob.ShadowfocusPlane		= workloadRequest.ShadowFocusPlane;
+			bakeJob.ShadowFocusPlane		= workloadRequest.ShadowFocusPlane;
 
 			bakeJob.Indices					= workloadRequest.GetIndicesArray();
 

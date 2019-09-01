@@ -19,7 +19,7 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 		public	int					SampleCount;
 		public	float				MinRange;
 		public	float				MaxRange;
-		public	float				ShadowfocusPlane;
+		public	float				ShadowFocusPlane;
 		public	int					Resolution;
 		public	int					BounceCount;
 
@@ -27,15 +27,15 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 		public	Vector4				LightSourceForward;
 		public	Vector4				LightSourceUpward;
 		public	Vector4				LightSourceRightward;
+		public	float				LightSourceTheta;
 
 		public	ObjectMeshDatum[]	ObjectData;
 		public	Vector3[]			Vertices;
 		public	int[]				Indices;
 
-		public ComputeShader		ComputeShader;
-
 		#endregion
 
+		public	ComputeShader		ComputeShader;
 
 		private RenderTexture		_renderTexture;
 
@@ -66,6 +66,7 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 		private ComputeBuffer		_indexDataBuffer;
 
 
+		public	ProcessorScript		Processor		{ get; set; }
 		public	bool				JobComplete		{ get; private set; }
 		public	int					BakeProgress	{ get; private set; }
 
@@ -77,7 +78,7 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			SampleCount				= -1;
 			MinRange				=  0.0f;
 			MaxRange				=  0.0f;
-			ShadowfocusPlane		=  0.0f;
+			ShadowFocusPlane		=  0.0f;
 			Resolution				= -1;
 			BounceCount				= -1;
 
@@ -101,6 +102,9 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 		public void StartJob()
 		{
+			BakeProgress = 0;
+			Processor.SendUpdate();
+
 			_renderTexture = new RenderTexture(Resolution,						// Width
 											   Resolution,						// Height
 											   0,								// Depth/Stencel Buffer
@@ -152,7 +156,59 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 		public void Update()
 		{
+			if (JobComplete)
+				return;
+
+			///
+			/// Passing data to the Compute shader for ray-tracing
+			/// 
 			ComputeShader.SetBuffer(_kernalID, _meshDataID, _objectDataBuffer);
+			ComputeShader.SetBuffer(_kernalID, _verticesID, _vertexDataBuffer);
+			ComputeShader.SetBuffer(_kernalID, _indicesID, _indexDataBuffer);
+
+			ComputeShader.SetFloat(_innerRangeID, MinRange);
+			ComputeShader.SetFloat(_outerRangeID, MaxRange);
+			ComputeShader.SetFloat(_shadowFocusDistanceID, ShadowFocusPlane);
+			ComputeShader.SetFloat(_spotlightThetaID, LightSourceTheta);
+
+			ComputeShader.SetInt(_imageResolutionID, Resolution);
+			ComputeShader.SetInt(_maxSegmentsID, BounceCount);
+			ComputeShader.SetInt(_sampleCountID, SampleCount);
+
+			ComputeShader.SetTexture(_kernalID, _renderTextureID, _renderTexture);
+
+			ComputeShader.SetVector(_lightForwardID, LightSourceForward);
+			ComputeShader.SetVector(_lightRightwardID, LightSourceRightward);
+			ComputeShader.SetVector(_lightUpwardID, LightSourceUpward);
+			ComputeShader.SetVector(_lightPositionID, LightSourcePosition);
+
+			// Unity's Random gives us a value in the range of [0.0, 1.0] and what we want is a value in the range 
+			// of [0.0, 1.0), so for the few cases where we get a value of 1.0, we'll just ask for a new value.
+			// -FCT
+			var uvOffset = new Vector4(0.5f, 0.5f, 0.0f, 0.0f);
+			do
+			{
+				uvOffset.x = Random.value;
+			} while (uvOffset.x < 1.0f);
+			do
+			{
+				uvOffset.y = Random.value;
+			} while (uvOffset.y < 1.0f);
+
+			ComputeShader.SetVector(_uvOffsetID, uvOffset);
+
+
+			///
+			/// Running the ray-tracing code.
+			/// 
+			ComputeShader.Dispatch(_kernalID, 8, 8, 1);
+
+			///
+			/// Tracking/Updating Progress
+			/// 
+			BakeProgress++;
+			JobComplete = BakeProgress == SampleCount;
+			Processor.SendUpdate();
 		}
 
 	}
