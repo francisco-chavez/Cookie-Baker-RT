@@ -19,6 +19,8 @@ table WorkloadRequest {
 	LightSourceForwardDir:Vec3;
 	LightSourceUpwardDir:Vec3;
 	
+	LightSourceThetaRads:float;
+	
 	ObjectData:[MeshObject];
 	Indices:[int];
 	Vertices:[Vec3];
