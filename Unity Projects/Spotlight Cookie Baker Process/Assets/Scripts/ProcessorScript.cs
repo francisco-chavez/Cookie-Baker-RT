@@ -164,7 +164,7 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			_updatesSinceLastGC++;
 			if (_updatesSinceLastGC % 10 == 0)
 			{
-				System.GC.Collect();
+				System.GC.Collect(); 
 				_updatesSinceLastGC = 0;
 			}
 		}
@@ -172,7 +172,34 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 		private void FinishBakeJob()
 		{
 			var pixels = _currentBakeJob.Finish();
-			throw new System.NotImplementedException();
+
+			int pixelCount = _currentBakeJob.Resolution * _currentBakeJob.Resolution;
+			var arraySize = 4 * 3 * pixelCount;
+			arraySize += 4 * 4;
+
+
+			var builder = new FlatBufferBuilder(arraySize);
+
+			WorkloadComplete.StartResultsVector(builder, pixelCount);
+			foreach (var color in pixels)
+				Vec3.CreateVec3(builder, color.r, color.g, color.b);
+			var resultsVectorOffset = builder.EndVector();
+
+			WorkloadComplete.StartWorkloadComplete(builder);
+			WorkloadComplete.AddResults(builder, resultsVectorOffset);
+			WorkloadComplete.AddWorkloadID(builder, _currentBakeJob.JobID);
+			var messageDataOffset = WorkloadComplete.EndWorkloadComplete(builder);
+
+			Message.StartMessage(builder);
+			Message.AddData(builder, messageDataOffset.Value);
+			Message.AddDataType(builder, MessageDatum.WorkloadComplete);
+			var messageOffset = Message.EndMessage(builder);
+
+			builder.Finish(messageOffset.Value);
+			var byteArray = builder.SizedByteArray();
+
+			_currentBakeJob = null;
+			_outgoingMessages.Enqueue(byteArray);
 		}
 
 		public void SendUpdate()
