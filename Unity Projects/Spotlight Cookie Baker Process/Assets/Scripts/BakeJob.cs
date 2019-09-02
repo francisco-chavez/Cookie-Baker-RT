@@ -97,7 +97,7 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 		public void CancelJob()
 		{
-
+			Cleanup();
 		}
 
 		public void StartJob()
@@ -211,5 +211,59 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			Processor.SendUpdate();
 		}
 
+		public Color[] Finish()
+		{
+			Texture2D systemTexture = new Texture2D(Resolution, Resolution, TextureFormat.RGBAFloat, false, true);
+			systemTexture.filterMode = FilterMode.Point;
+			systemTexture.wrapMode = TextureWrapMode.Clamp;
+
+			RenderTexture.active = _renderTexture;
+			systemTexture.ReadPixels(new Rect(0, 0, Resolution, Resolution), 0, 0, false);
+			systemTexture.Apply();
+
+			RenderTexture.active = null;
+
+			var pixels = systemTexture.GetPixels();
+
+			Cleanup();
+
+			return pixels;
+		}
+
+		private void Cleanup()
+		{
+			if (_renderTexture != null)
+			{
+				_renderTexture.Release();
+				_renderTexture = null;
+			}
+
+			if (_objectDataBuffer != null)
+			{
+				_objectDataBuffer.Release();
+				_objectDataBuffer.Dispose();
+				_objectDataBuffer = null;
+			}
+
+			if (_vertexDataBuffer != null)
+			{
+				_vertexDataBuffer.Release();
+				_vertexDataBuffer.Dispose();
+				_vertexDataBuffer = null;
+			}
+
+			if (_indexDataBuffer != null)
+			{
+				_indexDataBuffer.Release();
+				_indexDataBuffer.Dispose();
+				_indexDataBuffer = null;
+			}
+
+			ObjectData	= null;
+			Vertices	= null;
+			Indices		= null;
+
+			Processor	= null;
+		}
 	}
 }

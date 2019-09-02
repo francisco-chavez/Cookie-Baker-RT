@@ -171,6 +171,7 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 		private void FinishBakeJob()
 		{
+			var pixels = _currentBakeJob.Finish();
 			throw new System.NotImplementedException();
 		}
 
