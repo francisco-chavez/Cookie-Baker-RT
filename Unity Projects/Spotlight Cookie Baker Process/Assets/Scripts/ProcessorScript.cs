@@ -136,13 +136,9 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			{
 				// If the job is complete
 				if (_currentBakeJob.JobComplete)
-				{
-
-				}
+					FinishBakeJob();
 				else
-				{
 					_currentBakeJob.Update();
-				}
 			}
 
 			// One thing I learned when dealing with systems with lots of memory is that you should run the garbage 
@@ -152,8 +148,8 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			// for it to crash. I will repeat, reclaiming a large enough heap can cause the process to pause long 
 			// enough to cause it to crash. I think it has something to do with some Graphics APIs throwing up an 
 			// error when they drop below a certain FPS. It might also be a Windows thing, I know for a fact that
-			// it doesn't like it when a window's FPS drops well below 1. I learned this the hard way when I was 
-			// doing image capturing for some NN training on some server-hardware. The image capute was done on 
+			// it doesn't like it when a windows' FPS drops well below 1. I learned this the hard way when I was 
+			// doing image capturing for some NN training on some server-hardware. The image capture was done on 
 			// server grade hardware; I've don't now which hardware the training was done on because I wasn't 
 			// working that part of the project. Anyways, each frame created a new byte array that would get saved 
 			// to disk, and those arrays just built-up inside the heap. A few hours in, the memory use had grown 
@@ -161,8 +157,9 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			// throw in a CG call every couple of frames and ran the process for an 8 hour batch at a higher 
 			// resoultion than needed, to really make sure the problem was fixed. Now you know why I'm running a
 			// call to the GC every 'X' frames on a process that's expected to create quite a few byte arrays that
-			// aren't all needed at once. And, no, I wasn't able to put those byte arrays on inside of a memory
-			// pool, the item that generates them isn't part of the code that I wrote.
+			// aren't all needed at once. And, no, I wasn't able to put those byte arrays inside of a memory pool,
+			// the item that generated them isn't part of the code that I wrote, and it didn't have a method for
+			// incoding to a given array.
 			// -FCT
 			_updatesSinceLastGC++;
 			if (_updatesSinceLastGC % 10 == 0)
@@ -172,9 +169,14 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 			}
 		}
 
+		private void FinishBakeJob()
+		{
+			throw new System.NotImplementedException();
+		}
+
 		public void SendUpdate()
 		{
-			var builder = new FlatBufferBuilder(16);
+			var builder = new FlatBufferBuilder(32);
 
 			ProgressUpdate.StartProgressUpdate(builder);
 			ProgressUpdate.AddCompletedSamples(builder, _currentBakeJob.BakeProgress);
