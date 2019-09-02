@@ -174,7 +174,23 @@ namespace FCT.CookieBakerRT.SpotlightProcessing
 
 		public void SendUpdate()
 		{
-			throw new System.NotImplementedException();
+			var builder = new FlatBufferBuilder(16);
+
+			ProgressUpdate.StartProgressUpdate(builder);
+			ProgressUpdate.AddCompletedSamples(builder, _currentBakeJob.BakeProgress);
+			ProgressUpdate.AddCurrentlyRunning(builder, true);
+			ProgressUpdate.AddTotalSamples(builder, _currentBakeJob.SampleCount);
+			ProgressUpdate.AddWorkloadID(builder, _currentBakeJob.JobID);
+			var messageDatumOffset = ProgressUpdate.EndProgressUpdate(builder);
+
+			Message.StartMessage(builder);
+			Message.AddData(builder, messageDatumOffset.Value);
+			Message.AddDataType(builder, MessageDatum.ProgressUpdate);
+
+			var messageOffset = Message.EndMessage(builder);
+			builder.Finish(messageOffset.Value);
+
+			_outgoingMessages.Enqueue(builder.SizedByteArray());
 		}
 
 		private void ProcessNewMessages()
