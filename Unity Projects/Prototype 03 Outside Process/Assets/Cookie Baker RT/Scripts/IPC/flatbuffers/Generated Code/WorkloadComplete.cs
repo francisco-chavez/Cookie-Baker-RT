@@ -19,16 +19,22 @@ public struct WorkloadComplete : IFlatbufferObject
   public WorkloadComplete __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
   public int WorkloadID { get { int o = __p.__offset(4); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
+  public FCT.CookieBakerRT.IPC_DataFormat.Vec3? Results(int j) { int o = __p.__offset(6); return o != 0 ? (FCT.CookieBakerRT.IPC_DataFormat.Vec3?)(new FCT.CookieBakerRT.IPC_DataFormat.Vec3()).__assign(__p.__vector(o) + j * 12, __p.bb) : null; }
+  public int ResultsLength { get { int o = __p.__offset(6); return o != 0 ? __p.__vector_len(o) : 0; } }
 
   public static Offset<FCT.CookieBakerRT.IPC_DataFormat.WorkloadComplete> CreateWorkloadComplete(FlatBufferBuilder builder,
-      int WorkloadID = 0) {
-    builder.StartTable(1);
+      int WorkloadID = 0,
+      VectorOffset ResultsOffset = default(VectorOffset)) {
+    builder.StartTable(2);
+    WorkloadComplete.AddResults(builder, ResultsOffset);
     WorkloadComplete.AddWorkloadID(builder, WorkloadID);
     return WorkloadComplete.EndWorkloadComplete(builder);
   }
 
-  public static void StartWorkloadComplete(FlatBufferBuilder builder) { builder.StartTable(1); }
+  public static void StartWorkloadComplete(FlatBufferBuilder builder) { builder.StartTable(2); }
   public static void AddWorkloadID(FlatBufferBuilder builder, int WorkloadID) { builder.AddInt(0, WorkloadID, 0); }
+  public static void AddResults(FlatBufferBuilder builder, VectorOffset ResultsOffset) { builder.AddOffset(1, ResultsOffset.Value, 0); }
+  public static void StartResultsVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(12, numElems, 4); }
   public static Offset<FCT.CookieBakerRT.IPC_DataFormat.WorkloadComplete> EndWorkloadComplete(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<FCT.CookieBakerRT.IPC_DataFormat.WorkloadComplete>(o);
