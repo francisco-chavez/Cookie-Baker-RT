@@ -6,4 +6,5 @@ namespace FCT.CookieBakerRT.IPC_DataFormat;
 
 table WorkloadComplete {
 	WorkloadID:int;
+	Results:[Vec3];
 }

@@ -1,5 +1,6 @@
 
 namespace FCT.CookieBakerRT.IPC_DataFormat;
 
+
 table ShutdownMessage {
 }

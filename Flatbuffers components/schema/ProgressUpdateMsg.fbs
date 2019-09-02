@@ -1,6 +1,4 @@
 
-include "MyStructs.fbs";
-
 namespace FCT.CookieBakerRT.IPC_DataFormat;
 
 
